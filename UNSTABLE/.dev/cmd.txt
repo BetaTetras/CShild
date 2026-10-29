@@ -1,0 +1,43 @@
+// Général
+CShild
+CShild --info
+CShild --help
+CShild --versions
+
+// Coffres
+CShild init <vault>
+CShild vaults
+CShild password [--vault]
+
+// Création
+CShild create [--vault] --app --id
+CShild create [--vault] --app --id --note
+CShild create [--vault] --app --id --tags,...
+
+// Suppression
+CShild delete [--vault] --app --id
+CShild delete [--vault] --app
+CShild delete [--vault] --app [--id] --yes
+
+// Modification
+CShild modify [--vault] --app --rename-app
+CShild modify [--vault] --app --id --rename-id
+CShild modify [--vault] --app --id --set-password
+CShild modify [--vault] --app --id --note
+CShild modify [--vault] --app --id --add-tag
+CShild modify [--vault] --app --id --remove-tag
+
+// Affichage
+CShild show [--vault]
+CShild show [--vault] --app
+CShild show [--vault] --id
+CShild show [--vault] --app --id
+CShild show [--vault] --tag
+CShild show [--vault] --table [--app]
+CShild show [--vault] --app --id --reveal
+CShild show [--vault] --app --id --copy
+
+// Générateur
+CShild generate
+CShild generate --length
+CShild generate --length --no-symbols
