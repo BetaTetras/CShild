@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "vaults_dir_path": "C:\\Users\\grego\\Documents\\dev\\C\\Cshild\\UNSTABLE\\vaults",
+  "pbkdf2_iterations": 600000,
+  "generator": {
+    "length": 20,
+    "uppercase": true,
+    "lowercase": true,
+    "digits": true,
+    "symbols": true
+  }
+}

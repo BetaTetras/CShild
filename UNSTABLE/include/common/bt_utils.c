@@ -1,12 +1,18 @@
 #include <stdio.h>
 #include <stdint.h> 
 #include <stdlib.h>
+#include <stdarg.h>
+#include <dirent.h>
+
+#include "cson.h"
+#include "AES.h"
+#include "bt_utils.h"
 
 #include "bt_utils.h"
 
 size_t bt_strlen(const char* str){
     if(str == NULL){
-        return 0;   // size_t est non signé : -1 donnerait SIZE_MAX
+        return 0;
     }
     size_t i =0;
     while(str[i] != '\0'){
@@ -39,6 +45,16 @@ int bt_strcmp(const char* str1,const char* str2){
         }
     }
     return 0;
+}
+
+int bt_strchr(char* str,char c){
+    size_t len_str = bt_strlen(str);
+    for(size_t i=0;i<len_str;i++){
+        if(str[i] == c){
+            return i;
+        }
+    }
+    return -1;
 }
 
 // String copy between x and y
@@ -97,4 +113,82 @@ int bt_strcpy(char** dest,const char* src){
     }
     (*dest)[size-1] = '\0';
     return 0;
+}
+
+int bt_isOneOfThemEqual(const char* str,size_t nbrOfElement,...){
+    va_list liste;
+    va_start(liste, nbrOfElement);
+    int res = 0;
+    for(size_t i=0;i<nbrOfElement;i++){
+        if(bt_strcmp(va_arg(liste, const char*),str) == 0){
+            res = 1;
+            break;
+        }
+    }
+    va_end(liste);
+    return res; 
+}
+
+int bt_vaultAreadyCreated(char* selectedName){
+    char* confPath = calloc(512,sizeof(char));
+    int state;
+    if(confPath == NULL){
+        // Erreur log (OOM)
+        return 1;
+    }
+
+    #ifdef _WIN32
+        const char* base = getenv("APPDATA");
+    #elif defined(__linux__)
+        const char* base = getenv("HOME");
+    #endif
+    if(base == NULL){
+        // Erreur log (erreur env)
+        free(confPath);
+        return 1;
+    }
+
+    sprintf(confPath,"%s/.config/conf.json",base);
+    JsonValue conf = initCsonFromFile(confPath);
+    size_t indexPath = getIndexFromObject(conf.value.object,"vaults_dir_path");
+    char* vaultsPath = calloc(512,sizeof(char));
+    if(vaultsPath == NULL){
+        // Erreur log (OOM)
+        free(confPath);
+        free(vaultsPath);
+        return 1;
+    }
+
+    state = bt_strcpy(&vaultsPath,conf.value.object->listeOfPair[indexPath].value.value.string);
+    if(state){
+        // Erreur log (cpy str)
+        free(confPath);
+        free(vaultsPath);
+        return 1;
+    }
+
+    DIR *d = opendir(vaultsPath);
+    if(d == NULL){
+        // Erreur log (Ouverture dir vaults)
+        free(confPath);
+        free(vaultsPath);
+        return 1;
+    }
+
+    int found;
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL) {   // 2. lire une entrée à la fois
+        if(bt_strcmp(e->d_name))
+    }
+
+
+
+    closedir(d);
+    free(confPath);
+    free(vaultsPath);
+    return 0;
+}
+
+int parseVaultName(char** dest,char* src){
+
 }

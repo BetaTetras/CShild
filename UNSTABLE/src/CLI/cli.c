@@ -8,40 +8,60 @@
 #include "AES.h"
 #include "bt_utils.h"
 
+typedef enum {
+    crt,
+    dlt,
+    mdf,
+    shw,
+    gen,
+    oth
+} methode;
+
 int main(int argc, char *argv[]) {
+    int state;
     if(argc == 1){
         // Faire le CLI custom
     }
+    methode m;
 
-    // Général
-    if(argc == 2){
-        if(isOneOfThemEqual(argv[1],3,"--info","-I","-i")){
-            // Donner des information
-        }else if(isOneOfThemEqual(argv[1],3,"--help","-H","-h")){
-            // Donner de l'aide
-        }else if(isOneOfThemEqual(argv[1],3,"--version","-V","-v")){
-            // Donner la version
-        }else if(bt_strcmp(argv[1],"vaults")){
-            // Erreur
-        }
+    if(isOneOfThemEqual(argv[1],2,"creat","crt")){
+        m = crt;
+    }else if(isOneOfThemEqual(argv[1],2,"delete","dlt")){
+        m = dlt;
+    }else if(isOneOfThemEqual(argv[1],2,"modify","mdf")){
+        m = mdf;
+    }else if(isOneOfThemEqual(argv[1],2,"show","shw")){
+        m = shw;
+    }else if(isOneOfThemEqual(argv[1],2,"generate","gen")){
+        m = gen;
+    }else if(isOneOfThemEqual(argv[1],3,"--info","i","I") ||
+             isOneOfThemEqual(argv[1],3,"--help","h","H") ||
+             isOneOfThemEqual(argv[1],3,"--version","v","V")){
+        m = oth;
+    }else{
+        // Erreur, methode non-connue
     }
 
-    //
+    switch (m)
+    {
+    case crt:{
+        if(argc < 3){
+            // Not enough param
+        }
+        size_t len_vaultTarget = bt_strlen(argv[2]);
+
+    break;
+    }
+    
+    
+    default:
+        break;
+    }
 
     return 0;
 }
 
 
-static int isOneOfThemEqual(char* str,size_t nbrOfElement,...){
-    va_list liste;
-    va_start(liste, nbrOfElement);
-    int res = 0;
-    for(size_t i=0;i<nbrOfElement;i++){
-        if(bt_strcmp(va_arg(liste, char*),str) == 0){
-            res = 1;
-            break;
-        }
-    }
-    va_end(liste);
-    return res; 
+static int vaultAlreadyExist(char* vaultName){
+    DIR *d = opendir("");
 }

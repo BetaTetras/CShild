@@ -10,5 +10,9 @@ size_t bt_strlen(const char* str);                                   // 0 si str
 int bt_strcmp(const char* str1, const char* str2);                    // <0, 0 ou >0 comme strcmp
 int bt_strcpybxy(char** dest, const char* src, size_t x, size_t y);   // copie src[x..y] dans *dest
 int bt_strcpy(char** dest, const char* src);                          // copie src dans *dest (malloc/realloc)
+int bt_strchr(char* str,char c);
+
+int bt_isOneOfThemEqual(const char* str, size_t nbrOfElement, ...);  // 1 si str vaut l'une des chaînes suivantes
+int parseVaultName(char** dest,char* src);
 
 #endif
