@@ -142,32 +142,22 @@ int bt_isOneOfThemEqual(const char* str,size_t nbrOfElement,...){
     return res; 
 }
 
-int bt_vaultAreadyCreated(char* selectedName){
-    char* confPath = calloc(512,sizeof(char));
+int bt_vaultAreadyCreated(const char* selectedName){
     int state;
+    char* projectRoot = NULL;
+    char* confPath = calloc(512,sizeof(char));
     if(confPath == NULL){
-        // Erreur log (OOM)
         return -1;
     }
-
-    const char* base = NULL;
-    #ifdef _WIN32
-        base = getenv("APPDATA");
-    #elif defined(__linux__)
-        base = getenv("HOME");
-    #else
-        // OS non reconnue
-        free(confPath);
-        return -1;
-    #endif
-    if(base == NULL){
-        // Erreur log (erreur env)
+    state = bt_getCShildDir(&projectRoot);
+    if(state){
         free(confPath);
         return -1;
     }
 
+    snprintf(confPath,512,"%s/.config/conf.json",projectRoot);
+    free(projectRoot);
 
-    sprintf(confPath,"%s/CShild/.config/conf.json",base);
     JsonValue conf = initCsonFromFile(confPath);
     if(conf.type == JSON_ERROR){
         // Erreur log (Ouverture JSON)
@@ -257,5 +247,35 @@ int parseVaultName(char** dest,const char* src){
         return 1;
     }
 
+    return 0;
+}
+
+int bt_getCShildDir(char** pathDest){
+    if(pathDest == NULL){
+        return 1;
+    }
+
+    const char* base = NULL;
+    #ifdef _WIN32
+        base = getenv("APPDATA");
+    #elif defined(__linux__)
+        base = getenv("HOME");
+    #endif
+    if(base == NULL){
+        // Erreur log (erreur env ou OS non reconnu)
+        return 1;
+    }
+
+    size_t size = bt_strlen(base) + bt_strlen("/CShild") + 1;
+    char* tmp = calloc(size,sizeof(char));
+    if(tmp == NULL){
+        // Erreur log (OOM)
+        return 1;
+    }
+
+    snprintf(tmp,size,"%s/CShild",base);
+
+    free(*pathDest);
+    *pathDest = tmp;
     return 0;
 }

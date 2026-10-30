@@ -49,6 +49,10 @@ int main(int argc, char *argv[]) {
             // Not enough param
         }
         size_t len_vaultTarget = bt_strlen(argv[2]);
+        state = bt_vaultAreadyCreated(argv[2]);
+        if(state == -1){
+            return 1;
+        }
 
     break;
     }
