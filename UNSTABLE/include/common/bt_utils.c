@@ -8,8 +8,6 @@
 #include "AES.h"
 #include "bt_utils.h"
 
-#include "bt_utils.h"
-
 size_t bt_strlen(const char* str){
     if(str == NULL){
         return 0;
@@ -52,6 +50,21 @@ int bt_strchr(char* str,char c){
     for(size_t i=0;i<len_str;i++){
         if(str[i] == c){
             return i;
+        }
+    }
+    return -1;
+}
+
+int bt_strchrxt(const char* str,char c,int x){
+    size_t len_str = bt_strlen(str);
+    int y = 0;
+    for(size_t i=0;i<len_str;i++){
+        if(str[i] == c){
+            if(x == y){
+                return i;
+            }else{
+                y++;
+            }
         }
     }
     return -1;
@@ -134,29 +147,48 @@ int bt_vaultAreadyCreated(char* selectedName){
     int state;
     if(confPath == NULL){
         // Erreur log (OOM)
-        return 1;
+        return -1;
     }
 
+    const char* base = NULL;
     #ifdef _WIN32
-        const char* base = getenv("APPDATA");
+        base = getenv("APPDATA");
     #elif defined(__linux__)
-        const char* base = getenv("HOME");
+        base = getenv("HOME");
+    #else
+        // OS non reconnue
+        free(confPath);
+        return -1;
     #endif
     if(base == NULL){
         // Erreur log (erreur env)
         free(confPath);
-        return 1;
+        return -1;
     }
 
-    sprintf(confPath,"%s/.config/conf.json",base);
+
+    sprintf(confPath,"%s/CShild/.config/conf.json",base);
     JsonValue conf = initCsonFromFile(confPath);
+    if(conf.type == JSON_ERROR){
+        // Erreur log (Ouverture JSON)
+        free(confPath);
+        freeValue(conf);
+        return -1;
+    }
     size_t indexPath = getIndexFromObject(conf.value.object,"vaults_dir_path");
+    if(indexPath == (size_t) -1){
+        // pas de clé "vaults_dir_path" dans le conf.json
+        free(confPath);
+        freeValue(conf);
+        return -1;
+    }
     char* vaultsPath = calloc(512,sizeof(char));
     if(vaultsPath == NULL){
         // Erreur log (OOM)
         free(confPath);
         free(vaultsPath);
-        return 1;
+        freeValue(conf);
+        return -1;
     }
 
     state = bt_strcpy(&vaultsPath,conf.value.object->listeOfPair[indexPath].value.value.string);
@@ -164,7 +196,8 @@ int bt_vaultAreadyCreated(char* selectedName){
         // Erreur log (cpy str)
         free(confPath);
         free(vaultsPath);
-        return 1;
+        freeValue(conf);
+        return -1;
     }
 
     DIR *d = opendir(vaultsPath);
@@ -172,23 +205,57 @@ int bt_vaultAreadyCreated(char* selectedName){
         // Erreur log (Ouverture dir vaults)
         free(confPath);
         free(vaultsPath);
-        return 1;
+        freeValue(conf);
+        return -1;
     }
-
-    int found;
     struct dirent *e;
-    while ((e = readdir(d)) != NULL) {   // 2. lire une entrée à la fois
-        if(bt_strcmp(e->d_name))
+
+    while ((e = readdir(d)) != NULL) {
+        if(bt_strcmp(e->d_name,".") == 0 || bt_strcmp(e->d_name,"..") == 0){
+            continue;
+        }
+        char *parsedName = NULL;
+        state = parseVaultName(&parsedName,e->d_name);
+        if(state){
+            free(parsedName);
+            continue;
+        }
+        if(bt_strcmp(selectedName,parsedName) == 0){
+            free(parsedName);
+            closedir(d);
+            free(confPath);
+            free(vaultsPath);
+            freeValue(conf);
+            return 1;
+        }
+        free(parsedName);
     }
-
-
 
     closedir(d);
+    freeValue(conf);
     free(confPath);
     free(vaultsPath);
+    
     return 0;
 }
 
-int parseVaultName(char** dest,char* src){
+int parseVaultName(char** dest,const char* src){
+    if(dest == NULL || src == NULL){
+        return 1;
+    }
 
+    int state;
+    int x = bt_strchrxt(src,'.',0);
+    int y = bt_strchrxt(src,'.',1);
+
+    if (x == -1 || y == -1 || y <= x + 1) {
+        return 1;
+    }
+
+    state = bt_strcpybxy(dest,src,x+1,y-1);
+    if(state){
+        return 1;
+    }
+
+    return 0;
 }
