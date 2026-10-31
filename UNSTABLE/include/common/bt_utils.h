@@ -19,5 +19,7 @@ int parseVaultName(char** dest,const char* src);
 int bt_getCShildDir(char** pathDest);
 void bt_multiFree(size_t numberToFree,...);
 void bt_deepFree(size_t numberToFree,void** p);
+void nukeString(char* str,size_t size);
+int bt_fgetss(char** dest);
 
 #endif

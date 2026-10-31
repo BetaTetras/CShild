@@ -4,6 +4,13 @@
 #include <stdarg.h>
 #include <dirent.h>
 
+#ifdef _WIN32
+    #include <windows.h>
+#else
+    #include <termios.h>
+    #include <unistd.h>
+#endif
+
 #include "cson.h"
 #include "AES.h"
 #include "bt_utils.h"
@@ -145,7 +152,7 @@ int bt_isOneOfThemEqual(const char* str,size_t nbrOfElement,...){
 int bt_vaultAreadyCreated(const char* selectedName){
     int state;
     char* projectRoot = NULL;
-    char* confPath = calloc(512,sizeof(char));
+    char* confPath = NULL;
     if(confPath == NULL){
         return -1;
     }
@@ -298,3 +305,184 @@ void bt_deepFree(size_t numberToFree,void** p){
     }
     free(p);
 }
+
+void nukeString(char* str,size_t size){
+    volatile char* p = str;
+    for(size_t i=0;i<size;i++){
+        p[i] = 0x00;
+    }
+}
+
+#ifdef _WIN32
+    int bt_fgetss(char** dest){
+        fflush(stdout);
+        if(dest == NULL){
+            return 1;
+        }
+        *dest = NULL;
+        HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
+        DWORD ancienMode;
+
+        if (!GetConsoleMode(hIn, &ancienMode)) {
+            printf("Pas une vraie console (entree redirigee, Git Bash ?)\n");
+            return 1;
+        }
+
+        // On désactive les flag q'on veut pas
+        DWORD nouveauMode = ancienMode & ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_PROCESSED_INPUT);
+        SetConsoleMode(hIn, nouveauMode);
+
+        size_t len_mdp = 0;
+        size_t size = 0;
+        char* tmp = calloc(len_mdp+1,sizeof(char));
+        if(tmp == NULL){
+            SetConsoleMode(hIn, ancienMode);
+            return 1;
+        }
+        *dest = tmp;
+        char c;
+        
+        unsigned char uc;
+        DWORD lus;
+        while(1){
+            if (!ReadFile(hIn, &c, 1, &lus, NULL) || lus == 0) {
+                SetConsoleMode(hIn, ancienMode);
+                nukeString(*dest, size + 1);
+                free(*dest);
+                *dest = NULL;
+                
+                return 1;
+            }
+            uc = c;
+
+            if (uc == '\r') { // Entrée
+                break;                      
+            } else if (uc == 8) { // Backspace
+                if(len_mdp > 0){
+                    fputs("\b \b", stdout);
+                    fflush(stdout);
+                    len_mdp --;
+                }
+            } else if (uc == 3){ // ctrl + c
+                SetConsoleMode(hIn, ancienMode);
+                nukeString(*dest, size + 1);
+                free(*dest);
+                *dest = NULL;
+                return 1;
+            } else if (32 <= uc && uc <= 126) {
+                len_mdp ++;
+                size ++ ;
+                tmp = realloc(*dest,size+1);
+                if(tmp == NULL){
+                    SetConsoleMode(hIn, ancienMode);
+                    nukeString(*dest, size);
+                    free(*dest);
+                    *dest = NULL;
+                    return 1;
+                }
+                *dest = tmp;
+                (*dest)[len_mdp-1] = uc;
+                putchar('*');
+                fflush(stdout);
+            }
+        }
+        SetConsoleMode(hIn, ancienMode);
+        putchar('\n');
+        if(len_mdp == 0){
+            nukeString(*dest, size + 1);
+            free(*dest);
+            *dest = NULL;
+            return 2;
+        }
+        nukeString(*dest + len_mdp + 1, size - len_mdp);
+        (*dest)[len_mdp] = '\0';
+
+        return 0;
+    }
+#else
+    int bt_fgetss(char** dest){
+        fflush(stdout);
+        if(dest == NULL){
+            return 1;
+        }
+        *dest = NULL;
+        struct termios ancien, nouveau;
+        if (tcgetattr(STDIN_FILENO, &ancien) != 0) {
+            return 1;
+        }
+
+        nouveau = ancien;
+        nouveau.c_lflag &= ~(ICANON | ECHO | ISIG);
+        nouveau.c_cc[VMIN] = 1;
+        nouveau.c_cc[VTIME] = 0;
+
+        tcsetattr(STDIN_FILENO, TCSAFLUSH, &nouveau);
+
+        size_t len_mdp = 0;
+        size_t size = 0;
+        char* tmp = calloc(len_mdp+1,sizeof(char));
+        if(tmp == NULL){
+            tcsetattr(STDIN_FILENO, TCSAFLUSH, &ancien);
+            return 1;
+        }
+        *dest = tmp;
+        char c;
+        unsigned char uc;
+
+        while(1){
+            if (read(STDIN_FILENO, &c, 1) != 1){
+                tcsetattr(STDIN_FILENO, TCSAFLUSH, &ancien);
+                nukeString(*dest, size + 1);
+                free(*dest);
+                *dest = NULL;
+                
+                return 1;
+            }
+            uc = c;
+
+            if (uc == '\r' || uc == '\n') { // Entrée
+                break;                      
+            } else if (uc == 8 || uc == 127) { // Backspace
+                if(len_mdp > 0){
+                    fputs("\b \b", stdout);
+                    fflush(stdout);
+                    len_mdp --;
+                }
+            } else if (uc == 3){ // ctrl + c
+                tcsetattr(STDIN_FILENO, TCSAFLUSH, &ancien);
+                nukeString(*dest, size + 1);
+                free(*dest);
+                *dest = NULL;
+                return 1;
+            } else if (32 <= uc && uc <= 126) {
+                len_mdp ++;
+                size ++ ;
+                tmp = realloc(*dest,size+1);
+                if(tmp == NULL){
+                    tcsetattr(STDIN_FILENO, TCSAFLUSH, &ancien);
+                    nukeString(*dest, size);
+                    free(*dest);
+                    *dest = NULL;
+                    return 1;
+                }
+                *dest = tmp;
+                (*dest)[len_mdp-1] = uc;
+                putchar('*');
+                fflush(stdout);
+            }
+        }
+
+        tcsetattr(STDIN_FILENO, TCSAFLUSH, &ancien);
+        putchar('\n');
+        if(len_mdp == 0){
+            nukeString(*dest, size + 1);
+            free(*dest);
+            *dest = NULL;
+            return 2;
+        }
+        nukeString(*dest + len_mdp + 1, size - len_mdp);
+        (*dest)[len_mdp] = '\0';
+
+        return 0;
+    }
+#endif
