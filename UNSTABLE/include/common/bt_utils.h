@@ -11,7 +11,8 @@ int bt_strcmp(const char* str1, const char* str2);                    // <0, 0 o
 int bt_strchr(char* str,char c);
 int bt_strchrxt(const char* str,char c,int x);
 int bt_strcpybxy(char** dest, const char* src, size_t x, size_t y);   // copie src[x..y] dans *dest
-int bt_strcpy(char** dest, const char* src);                          // copie src dans *dest (malloc/realloc)
+int bt_strcpy(char** dest, const char* src);                         // copie src dans *dest (malloc/realloc)
+int bt_strcat(char** str1,const char* str2);
 
 int bt_isOneOfThemEqual(const char* str, size_t nbrOfElement, ...);  // 1 si str vaut l'une des chaînes suivantes
 int bt_vaultAreadyCreated(const char* selectedName);
@@ -20,6 +21,8 @@ int bt_getCShildDir(char** pathDest);
 void bt_multiFree(size_t numberToFree,...);
 void bt_deepFree(size_t numberToFree,void** p);
 void nukeString(char* str,size_t size);
+
 int bt_fgetss(char** dest);
+int bt_pwdGen(char** dest,size_t length,int uppercase,int lowercase,int digits,int symbols);
 
 #endif

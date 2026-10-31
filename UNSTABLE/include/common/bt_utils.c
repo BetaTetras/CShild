@@ -6,9 +6,11 @@
 
 #ifdef _WIN32
     #include <windows.h>
+    #include <bcrypt.h>
 #else
     #include <termios.h>
     #include <unistd.h>
+    #include <sys/random.h>
 #endif
 
 #include "cson.h"
@@ -135,6 +137,28 @@ int bt_strcpy(char** dest,const char* src){
     return 0;
 }
 
+int bt_strcat(char** str1,const char* str2){
+    if(str1 == NULL || str2 == NULL){
+        return 1;
+    }
+    size_t len_str1 =  bt_strlen(*str1);
+    size_t len_str2 = bt_strlen(str2);
+    char* tmp = realloc(*str1,(len_str1 + len_str2 + 1) * sizeof(char));
+    if(tmp == NULL){
+        return 1;
+    }
+    *str1 = tmp;
+
+    size_t index = 0;
+    for(size_t i=len_str1;i<len_str1+len_str2;i++){
+        (*str1)[i] = str2[index];
+        index++;
+    }
+
+    (*str1)[len_str1+len_str2] = '\0';
+    return 0;
+}
+
 int bt_isOneOfThemEqual(const char* str,size_t nbrOfElement,...){
     va_list liste;
     va_start(liste, nbrOfElement);
@@ -152,7 +176,7 @@ int bt_isOneOfThemEqual(const char* str,size_t nbrOfElement,...){
 int bt_vaultAreadyCreated(const char* selectedName){
     int state;
     char* projectRoot = NULL;
-    char* confPath = NULL;
+    char* confPath = calloc(512, sizeof(char));
     if(confPath == NULL){
         return -1;
     }
@@ -399,6 +423,79 @@ void nukeString(char* str,size_t size){
 
         return 0;
     }
+
+    int bt_pwdGen(char** dest,size_t length,int uppercase,int lowercase,int digits,int symbols){
+        if(dest == NULL){
+            return 1;
+        }
+        if(uppercase == 0 && lowercase == 0 && digits == 0 && symbols == 0){
+            return 1;
+        }
+
+        char* tmp = realloc(*dest,(length+1) * sizeof(char));
+        if(tmp == NULL){
+            return 1;
+        }
+        *dest = tmp;
+
+        size_t len_alphabet = 0;
+        char* alphabet = NULL;
+
+        int state = 0;
+        if(uppercase){
+            state = bt_strcat(&alphabet,"ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+            if(state){
+                free(alphabet);
+                return 1;
+            }
+            len_alphabet += 26;
+        }
+        if(lowercase){
+            state = bt_strcat(&alphabet,"abcdefghijklmnopqrstuvwxyz");
+            if(state){
+                free(alphabet);
+                return 1;
+            }
+            len_alphabet += 26;
+        }
+        if(digits){
+            state = bt_strcat(&alphabet,"0123456789");
+            if(state){
+                free(alphabet);
+                return 1;
+            }
+            len_alphabet += 10;
+        }
+        if(symbols){
+            state = bt_strcat(&alphabet,"!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
+            if(state){
+                free(alphabet);
+                return 1;
+            }
+            len_alphabet += 32;
+        }
+
+        int limite = 256 - (256 % len_alphabet);
+        size_t index = 0;
+        while(index < length){
+            unsigned char oct;
+            NTSTATUS st = BCryptGenRandom(NULL, &oct, 1, BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+            if(st != 0){
+                // Erreur log (random)
+                free(alphabet);
+                return 1;
+            }
+            if(oct >= limite){
+                continue;
+            }
+            (*dest)[index] = alphabet[oct % len_alphabet];
+            index ++;
+        }
+        (*dest)[length] = '\0';
+
+        free(alphabet);
+        return 0;
+    }
 #else
     int bt_fgetss(char** dest){
         fflush(stdout);
@@ -483,6 +580,78 @@ void nukeString(char* str,size_t size){
         nukeString(*dest + len_mdp + 1, size - len_mdp);
         (*dest)[len_mdp] = '\0';
 
+        return 0;
+    }
+
+    int bt_pwdGen(char** dest,size_t length,int uppercase,int lowercase,int digits,int symbols){
+        if(dest == NULL){
+            return 1;
+        }
+        if(uppercase == 0 && lowercase == 0 && digits == 0 && symbols == 0){
+            return 1;
+        }
+
+        char* tmp = realloc(*dest,(length+1) * sizeof(char));
+        if(tmp == NULL){
+            return 1;
+        }
+        *dest = tmp;
+
+        size_t len_alphabet = 0;
+        char* alphabet = NULL;
+
+        int state = 0;
+        if(uppercase){
+            state = bt_strcat(&alphabet,"ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+            if(state){
+                free(alphabet);
+                return 1;
+            }
+            len_alphabet += 26;
+        }
+        if(lowercase){
+            state = bt_strcat(&alphabet,"abcdefghijklmnopqrstuvwxyz");
+            if(state){
+                free(alphabet);
+                return 1;
+            }
+            len_alphabet += 26;
+        }
+        if(digits){
+            state = bt_strcat(&alphabet,"0123456789");
+            if(state){
+                free(alphabet);
+                return 1;
+            }
+            len_alphabet += 10;
+        }
+        if(symbols){
+            state = bt_strcat(&alphabet,"!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
+            if(state){
+                free(alphabet);
+                return 1;
+            }
+            len_alphabet += 32;
+        }
+
+        int limite = 256 - (256 % len_alphabet);
+        size_t index = 0;
+        while(index < length){
+            unsigned char oct;
+            if(getrandom(&oct, 1, 0) != 1){
+                // Erreur log (random)
+                free(alphabet);
+                return 1;
+            }
+            if(oct >= limite){
+                continue;
+            }
+            (*dest)[index] = alphabet[oct % len_alphabet];
+            index ++;
+        }
+        (*dest)[length] = '\0';
+
+        free(alphabet);
         return 0;
     }
 #endif

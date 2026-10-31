@@ -1,13 +1,6 @@
 #include <stdio.h>
 #include <stdint.h> 
 #include <stdlib.h>
-#include <string.h>
-#include <stdarg.h>
-#ifdef _WIN32
-    #include <conio.h>
-#elif defined(__linux__)
-    #include <termios.h>
-#endif
 
 #include "cson.h"
 #include "AES.h"
