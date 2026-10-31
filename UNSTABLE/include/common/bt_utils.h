@@ -17,5 +17,7 @@ int bt_isOneOfThemEqual(const char* str, size_t nbrOfElement, ...);  // 1 si str
 int bt_vaultAreadyCreated(const char* selectedName);
 int parseVaultName(char** dest,const char* src);
 int bt_getCShildDir(char** pathDest);
+void bt_multiFree(size_t numberToFree,...);
+void bt_deepFree(size_t numberToFree,void** p);
 
 #endif

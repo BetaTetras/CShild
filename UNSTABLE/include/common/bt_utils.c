@@ -279,3 +279,22 @@ int bt_getCShildDir(char** pathDest){
     *pathDest = tmp;
     return 0;
 }
+
+void bt_multiFree(size_t numberToFree,...){
+    va_list liste;
+    va_start(liste, numberToFree);
+    for(size_t i=0;i<numberToFree;i++){
+        free(va_arg(liste,void*));
+    }
+    va_end(liste);
+}
+
+void bt_deepFree(size_t numberToFree,void** p){
+    if(p == NULL){
+        return;
+    }
+    for(size_t i=0;i<numberToFree;i++){
+        free(p[i]);
+    }
+    free(p);
+}
