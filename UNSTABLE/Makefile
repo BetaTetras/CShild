@@ -14,7 +14,7 @@ endif
 BUILD = build
 CLI   = cshild$(EXE)
 
-LIB_OBJ = $(BUILD)/cson.o $(BUILD)/AES.o $(BUILD)/bt_utils.o
+LIB_OBJ = $(BUILD)/cson.o $(BUILD)/AES.o $(BUILD)/bt_utils.o $(BUILD)/bt_log.o
 CLI_OBJ = $(BUILD)/cli.o
 
 all: $(CLI)
@@ -31,7 +31,10 @@ $(BUILD)/cson.o: include/CSON/cson.c include/CSON/cson.h include/common/bt_utils
 $(BUILD)/AES.o: include/AES-256-GCM/AES.c include/AES-256-GCM/AES.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD)/bt_utils.o: include/common/bt_utils.c include/common/bt_utils.h | $(BUILD)
+$(BUILD)/bt_utils.o: include/common/bt_utils.c include/common/bt_utils.h include/common/bt_log.h | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/bt_log.o: include/common/bt_log.c include/common/bt_log.h include/common/bt_utils.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD):

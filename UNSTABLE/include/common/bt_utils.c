@@ -16,6 +16,7 @@
 #include "cson.h"
 #include "AES.h"
 #include "bt_utils.h"
+#include "bt_log.h"
 
 size_t bt_strlen(const char* str){
     if(str == NULL){
@@ -178,11 +179,13 @@ int getConf(JsonValue* destConf){
     char* projectRoot = NULL;
     char* confPath = calloc(512, sizeof(char));
     if(confPath == NULL){
+        LOG_ERROR("Error while allocating memory (confPath calloc)");
         return 1;
     }
     state = getCShildDir(&projectRoot);
     if(state){
         free(confPath);
+        LOG_ERROR("Impossible to fetch the CShild directory (getCShildDir)");
         return 1;
     }
 
@@ -191,6 +194,7 @@ int getConf(JsonValue* destConf){
     *destConf = initCsonFromFile(confPath);
     free(confPath);
     if(destConf->type == JSON_ERROR){
+        LOG_ERROR("Impossible to read conf.json (initCsonFromFile)");
         return 1;
     }
 
@@ -202,10 +206,13 @@ int vaultAreadyCreated(const char* selectedName){
     JsonValue conf;
     state = getConf(&conf);
     if(state == 1){
+        LOG_ERROR("Impossible to fetch the conf (getConf)");
         return -1;
     }
     if(conf.type != JSON_OBJECT){
         // Conf non valide
+        freeValue(conf);
+        LOG_ERROR("conf.json invalid (root is not an object)");
         return -1;
     }
 
@@ -213,29 +220,30 @@ int vaultAreadyCreated(const char* selectedName){
     if(indexPath == (size_t) -1){
         // pas de clé "vaults_dir_path" dans le conf.json
         freeValue(conf);
+        LOG_ERROR("conf.json altered or corrupted, key 'vaults_dir_path' not found");
         return -1;
     }
     char* vaultsPath = calloc(512,sizeof(char));
     if(vaultsPath == NULL){
-        // Erreur log (OOM)
         free(vaultsPath);
         freeValue(conf);
+        LOG_ERROR("Error while allocating memory (vaultsPath calloc)");
         return -1;
     }
 
     state = bt_strcpy(&vaultsPath,conf.value.object->listeOfPair[indexPath].value.value.string);
     if(state){
-        // Erreur log (cpy str)
         free(vaultsPath);
         freeValue(conf);
+        LOG_ERROR("copy of an string failed (bt_strcpy)");
         return -1;
     }
 
     DIR *d = opendir(vaultsPath);
     if(d == NULL){
-        // Erreur log (Ouverture dir vaults)
         free(vaultsPath);
         freeValue(conf);
+        LOG_ERROR("Impossible to open the vaults directory (opendir)");
         return -1;
     }
     struct dirent *e;
@@ -307,14 +315,14 @@ int getCShildDir(char** pathDest){
         base = getenv("HOME");
     #endif
     if(base == NULL){
-        // Erreur log (erreur env ou OS non reconnu)
+        LOG_ERROR("Environment variable not found or OS not recognized (APPDATA / HOME)");
         return 1;
     }
 
     size_t size = bt_strlen(base) + bt_strlen("/CShild") + 1;
     char* tmp = calloc(size,sizeof(char));
     if(tmp == NULL){
-        // Erreur log (OOM)
+        LOG_ERROR("Error while allocating memory (tmp calloc)");
         return 1;
     }
 
@@ -573,8 +581,8 @@ void nukeString(char* str,size_t size){
             unsigned char oct;
             NTSTATUS st = BCryptGenRandom(NULL, &oct, 1, BCRYPT_USE_SYSTEM_PREFERRED_RNG);
             if(st != 0){
-                // Erreur log (random)
                 free(alphabet);
+                LOG_ERROR("Random generation failed (BCryptGenRandom)");
                 return 1;
             }
             if(oct >= limite){
@@ -731,8 +739,8 @@ void nukeString(char* str,size_t size){
         while(index < length){
             unsigned char oct;
             if(getrandom(&oct, 1, 0) != 1){
-                // Erreur log (random)
                 free(alphabet);
+                LOG_ERROR("Random generation failed (getrandom)");
                 return 1;
             }
             if(oct >= limite){
