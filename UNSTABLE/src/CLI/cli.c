@@ -23,19 +23,19 @@ int main(int argc, char *argv[]) {
     }
     methode m;
 
-    if(bt_isOneOfThemEqual(argv[1],2,"create","crt")){
+    if(isOneOfThemEqual(argv[1],2,"create","crt")){
         m = crt;
-    }else if(bt_isOneOfThemEqual(argv[1],2,"delete","dlt")){
+    }else if(isOneOfThemEqual(argv[1],2,"delete","dlt")){
         m = dlt;
-    }else if(bt_isOneOfThemEqual(argv[1],2,"modify","mdf")){
+    }else if(isOneOfThemEqual(argv[1],2,"modify","mdf")){
         m = mdf;
-    }else if(bt_isOneOfThemEqual(argv[1],2,"show","shw")){
+    }else if(isOneOfThemEqual(argv[1],2,"show","shw")){
         m = shw;
-    }else if(bt_isOneOfThemEqual(argv[1],2,"generate","gen")){
+    }else if(isOneOfThemEqual(argv[1],2,"generate","gen")){
         m = gen;
-    }else if(bt_isOneOfThemEqual(argv[1],3,"--info","-i","-I") ||
-             bt_isOneOfThemEqual(argv[1],3,"--help","-h","-H") ||
-             bt_isOneOfThemEqual(argv[1],3,"--version","-v","-V")){
+    }else if(isOneOfThemEqual(argv[1],3,"--info","-i","-I") ||
+             isOneOfThemEqual(argv[1],3,"--help","-h","-H") ||
+             isOneOfThemEqual(argv[1],3,"--version","-v","-V")){
         m = oth;
     }else{
         // Erreur, methode non-connue
@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
             // Not enough param
             return 1;
         }
-        state = bt_vaultAreadyCreated(argv[2]);
+        state = vaultAreadyCreated(argv[2]);
         if(state != 1){
             return 1;
         }
@@ -64,8 +64,10 @@ int main(int argc, char *argv[]) {
         size_t numOfTags = 0;
         char** tags = NULL;
 
+        CShildEntry e = {0};
+
         for(size_t i=3;i<argc;i++){
-            if(bt_isOneOfThemEqual(argv[i],2,"--app","-a")){
+            if(isOneOfThemEqual(argv[i],2,"--app","-a")){
                 if(i+1 >= argc){
                     // Il manque l'app dans la commande
                     bt_multiFree(3,app,id,note);
@@ -79,7 +81,8 @@ int main(int argc, char *argv[]) {
                     return 1;
                 }
                 paramAPP = 1;
-                state = bt_strcpy(&app,argv[i+1]);
+                e.app,argv[i+1];
+
                 if(state == 1){
                     // Erreur de copie
                     bt_multiFree(3,app,id,note);
@@ -87,7 +90,7 @@ int main(int argc, char *argv[]) {
                     return 1;
                 }
                 i++;
-            }else if(bt_isOneOfThemEqual(argv[i],2,"--id","-i")){
+            }else if(isOneOfThemEqual(argv[i],2,"--id","-i")){
                 if(i+1 >= argc){
                     // Il manque l'app dans la commande
                     bt_multiFree(3,app,id,note);
@@ -101,7 +104,7 @@ int main(int argc, char *argv[]) {
                     return 1;
                 }
                 paramID = 1;
-                state = bt_strcpy(&id,argv[i+1]);
+                e.id = argv[i+1];
                 if(state == 1){
                     // Erreur de copie
                     bt_multiFree(3,app,id,note);
@@ -109,7 +112,7 @@ int main(int argc, char *argv[]) {
                     return 1;
                 }
                 i++;
-            }else if(bt_isOneOfThemEqual(argv[i],2,"--note","-n")){
+            }else if(isOneOfThemEqual(argv[i],2,"--note","-n")){
                 if(i+1 >= argc){
                     // Il manque l'app dans la commande
                     bt_multiFree(3,app,id,note);
@@ -124,6 +127,7 @@ int main(int argc, char *argv[]) {
                 }
                 paramNOTE = 1;
                 state = bt_strcpy(&note,argv[i+1]);
+                e.note = argv[i+1];
                 if(state == 1){
                     // Erreur de copie
                     bt_multiFree(3,app,id,note);
@@ -131,7 +135,7 @@ int main(int argc, char *argv[]) {
                     return 1;
                 }
                 i++;
-            }else if(bt_isOneOfThemEqual(argv[i],2,"--tags","-t")){
+            }else if(isOneOfThemEqual(argv[i],2,"--tags","-t")){
                 if(paramTAGS == 1){
                     bt_multiFree(3,app,id,note);
                     bt_deepFree(numOfTags, (void**)tags);
@@ -170,6 +174,8 @@ int main(int argc, char *argv[]) {
                     }
                 }
                 i += numOfTags;
+                e.nbOfTags = numOfTags;
+                e.tags = tags;
             }else{
                 // Commande de crt non reconnue
                 bt_multiFree(3,app,id,note);
@@ -177,9 +183,35 @@ int main(int argc, char *argv[]) {
                 return 1;
             }
         }
-    bt_multiFree(3,app,id,note);
-    bt_deepFree(numOfTags, (void**)tags);
-    break;
+        int state = 0;
+        char* vaultPWD = NULL;
+        char* newPWD = NULL;
+        char* vaultPath = NULL;
+
+        // Entrée du mot de passe
+        printf("Enter the password of the vault : ");
+        state = bt_fgetss(&vaultPWD);
+        if(state != 0){
+            return 1;
+        }
+        state = getVaultPathFromName(&vaultPath,argv[2]);
+        if(state == 1){
+            return 1;
+        }
+        uint8_t* b_encryptedVault = NULL;
+        uint8_t* b_decryptedVault = NULL;
+        size_t size_encryptedVault;
+        size_t size_decryptedVault;
+        state = readVault(&b_encryptedVault,&size_encryptedVault,vaultPath);
+        if(state == 1){
+            return 1;
+        }
+        AES_GCM_Decrypt(&b_decryptedVault,&size_decryptedVault,b_encryptedVault,size_encryptedVault,vaultPWD);
+        JsonValue vaultRoot = initCson((char*)b_decryptedVault);
+
+        bt_multiFree(3,app,id,note);
+        bt_deepFree(numOfTags, (void**)tags);
+        break;
     }
     
     

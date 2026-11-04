@@ -3,6 +3,15 @@
 
 #include <stddef.h>
 
+typedef struct {
+    const char* app;
+    const char* id;
+    const char* pwd;
+    const char* note;
+    const char** tags;
+    size_t nbOfTags;
+}CShildEntry;
+
 // Fonctions de chaînes partagées par CSON, AES et le CLI.
 // Les paramètres const ne sont que lus.
 
@@ -14,11 +23,15 @@ int bt_strcpybxy(char** dest, const char* src, size_t x, size_t y);   // copie s
 int bt_strcpy(char** dest, const char* src);                         // copie src dans *dest (malloc/realloc)
 int bt_strcat(char** str1,const char* str2);
 
-int bt_isOneOfThemEqual(const char* str, size_t nbrOfElement, ...);  // 1 si str vaut l'une des chaînes suivantes
-int bt_vaultAreadyCreated(const char* selectedName);
+int isOneOfThemEqual(const char* str, size_t nbrOfElement, ...);  // 1 si str vaut l'une des chaînes suivantes
+int vaultAreadyCreated(const char* selectedName);
+int getConf(JsonValue* destConf);
 int parseVaultName(char** dest,const char* src);
-int bt_getCShildDir(char** pathDest);
+int getCShildDir(char** pathDest);
+int getVaultPathFromName(char** destPath,const char* vaultName);
+int readVault(uint8_t** dest,size_t* size,const char* path);
 void bt_multiFree(size_t numberToFree,...);
+void bt_multiFreeValue(size_t numberToFree,...);
 void bt_deepFree(size_t numberToFree,void** p);
 void nukeString(char* str,size_t size);
 

@@ -159,7 +159,7 @@ int bt_strcat(char** str1,const char* str2){
     return 0;
 }
 
-int bt_isOneOfThemEqual(const char* str,size_t nbrOfElement,...){
+int isOneOfThemEqual(const char* str,size_t nbrOfElement,...){
     va_list liste;
     va_start(liste, nbrOfElement);
     int res = 0;
@@ -173,40 +173,51 @@ int bt_isOneOfThemEqual(const char* str,size_t nbrOfElement,...){
     return res; 
 }
 
-int bt_vaultAreadyCreated(const char* selectedName){
+int getConf(JsonValue* destConf){
     int state;
     char* projectRoot = NULL;
     char* confPath = calloc(512, sizeof(char));
     if(confPath == NULL){
-        return -1;
+        return 1;
     }
-    state = bt_getCShildDir(&projectRoot);
+    state = getCShildDir(&projectRoot);
     if(state){
         free(confPath);
-        return -1;
+        return 1;
     }
 
     snprintf(confPath,512,"%s/.config/conf.json",projectRoot);
     free(projectRoot);
+    *destConf = initCsonFromFile(confPath);
+    free(confPath);
+    if(destConf->type == JSON_ERROR){
+        return 1;
+    }
 
-    JsonValue conf = initCsonFromFile(confPath);
-    if(conf.type == JSON_ERROR){
-        // Erreur log (Ouverture JSON)
-        free(confPath);
-        freeValue(conf);
+    return 0;
+}
+
+int vaultAreadyCreated(const char* selectedName){
+    int state = 0;
+    JsonValue conf;
+    state = getConf(&conf);
+    if(state == 1){
         return -1;
     }
+    if(conf.type != JSON_OBJECT){
+        // Conf non valide
+        return -1;
+    }
+
     size_t indexPath = getIndexFromObject(conf.value.object,"vaults_dir_path");
     if(indexPath == (size_t) -1){
         // pas de clé "vaults_dir_path" dans le conf.json
-        free(confPath);
         freeValue(conf);
         return -1;
     }
     char* vaultsPath = calloc(512,sizeof(char));
     if(vaultsPath == NULL){
         // Erreur log (OOM)
-        free(confPath);
         free(vaultsPath);
         freeValue(conf);
         return -1;
@@ -215,7 +226,6 @@ int bt_vaultAreadyCreated(const char* selectedName){
     state = bt_strcpy(&vaultsPath,conf.value.object->listeOfPair[indexPath].value.value.string);
     if(state){
         // Erreur log (cpy str)
-        free(confPath);
         free(vaultsPath);
         freeValue(conf);
         return -1;
@@ -224,7 +234,6 @@ int bt_vaultAreadyCreated(const char* selectedName){
     DIR *d = opendir(vaultsPath);
     if(d == NULL){
         // Erreur log (Ouverture dir vaults)
-        free(confPath);
         free(vaultsPath);
         freeValue(conf);
         return -1;
@@ -244,7 +253,6 @@ int bt_vaultAreadyCreated(const char* selectedName){
         if(bt_strcmp(selectedName,parsedName) == 0){
             free(parsedName);
             closedir(d);
-            free(confPath);
             free(vaultsPath);
             freeValue(conf);
             return 1;
@@ -254,26 +262,32 @@ int bt_vaultAreadyCreated(const char* selectedName){
 
     closedir(d);
     freeValue(conf);
-    free(confPath);
     free(vaultsPath);
     
     return 0;
 }
 
-int parseVaultName(char** dest,const char* src){
+int parseVaultName(char** dest, const char* src){
     if(dest == NULL || src == NULL){
         return 1;
     }
 
-    int state;
-    int x = bt_strchrxt(src,'.',0);
-    int y = bt_strchrxt(src,'.',1);
-
-    if (x == -1 || y == -1 || y <= x + 1) {
-        return 1;
+    size_t len = bt_strlen(src);
+    int dot = -1;
+    for(size_t i = 0; i < len; i++){
+        if(src[i] == '.'){
+            dot = (int)i;
+        }
     }
 
-    state = bt_strcpybxy(dest,src,x+1,y-1);
+    if(dot <= 0){
+        return 1;
+    }
+    if(bt_strcmp(src + dot, ".cshild") != 0){
+        return 1;
+    }
+    int state = 0;
+    state = bt_strcpybxy(dest, src, 0, dot - 1);
     if(state){
         return 1;
     }
@@ -281,7 +295,7 @@ int parseVaultName(char** dest,const char* src){
     return 0;
 }
 
-int bt_getCShildDir(char** pathDest){
+int getCShildDir(char** pathDest){
     if(pathDest == NULL){
         return 1;
     }
@@ -311,11 +325,76 @@ int bt_getCShildDir(char** pathDest){
     return 0;
 }
 
+int getVaultPathFromName(char** destPath,const char* vaultName){
+    if(destPath == NULL){
+        return 1;
+    }
+
+    int state = 0;
+    char* path = NULL;
+    state = getCShildDir(&path);
+    if(state == 1){
+        return 1;
+    }
+    sprintf(&path,"%s/UNSTABLE/vaults/%s.cshild",path,vaultName);
+
+    state = bt_strcpy(destPath,path);
+    if(state){
+        return 1;
+    }
+    return 0;
+}
+
+int readVault(uint8_t** dest,size_t* size,const char* path){
+    if(dest == NULL || size == NULL || path == NULL){
+        return 1;
+    }
+    FILE* f = fopen(path,"rb");
+    if(f == NULL){
+        return 1;
+    }
+
+    if(fseek(f,0,SEEK_END) != 0){
+        fclose(f);
+        return 1;
+    }
+    long len = ftell(f);
+    if(len <= 0){
+        fclose(f);
+        return 1;
+    }
+    rewind(f);
+    
+    uint8_t* buffer = calloc((size_t)len,sizeof(uint8_t));
+    if(buffer == NULL){
+        fclose(f);
+        return 1;
+    }
+    if(fread(buffer,1,(size_t)len,f) != (size_t)len){
+        free(buffer);
+        fclose(f);
+        return 1;
+    }
+    fclose(f);
+    *dest = buffer;
+    *size = (size_t)len;
+    return 0;
+}
+
 void bt_multiFree(size_t numberToFree,...){
     va_list liste;
     va_start(liste, numberToFree);
     for(size_t i=0;i<numberToFree;i++){
         free(va_arg(liste,void*));
+    }
+    va_end(liste);
+}
+
+void bt_multiFreeValue(size_t numberToFree,...){
+    va_list liste;
+    va_start(liste, numberToFree);
+    for(size_t i=0;i<numberToFree;i++){
+        freeValue(*va_arg(liste,JsonValue*));
     }
     va_end(liste);
 }
