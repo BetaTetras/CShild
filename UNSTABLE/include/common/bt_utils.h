@@ -28,6 +28,7 @@ int vaultAreadyCreated(const char* selectedName);
 int getConf(JsonValue* destConf);
 int parseVaultName(char** dest,const char* src);
 int getCShildDir(char** pathDest);
+int getVersionCShild();
 int getVaultPathFromName(char** destPath,const char* vaultName);
 int readVault(uint8_t** dest,size_t* size,const char* path);
 void bt_multiFree(size_t numberToFree,...);

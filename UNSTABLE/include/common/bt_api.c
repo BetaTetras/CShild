@@ -9,8 +9,79 @@
 #include "bt_utils.h"
 
 int addEntry(JsonValue *vaultRoot,CShildEntry entry){
+    if(vaultRoot == NULL || vaultRoot->type != JSON_OBJECT){
+        return 1;
+    }
+    size_t indexor = 0;
+    // Vérification des version 
+    int versionCShild = getVersionOfCShild();
+    int versionVault = getVersionVault(*vaultRoot);
+    if(versionCShild == -1 || versionVault == -1){
+        return 1;
+    }else if(versionCShild != versionVault){
+        return 2;
+    }
 
+    indexor = getIndexFromObject(vaultRoot->value.object,"apps");
+    if(indexor == (size_t)-1){
+        return 3;
+    }
+    // L'application existe t'il ?
+    JsonValue *apps_p = &vaultRoot->value.object->listeOfPair[indexor].value;
+    size_t indexApp = getIndexFromObject(vaultRoot->value.object->listeOfPair[indexor].value.value.object,entry.app);
+    if(indexApp == (size_t)-1){
+        // L'app n'existe pas
+        JsonValue newApp = initJsonValue(JSON_OBJECT);
+        JsonValue newID = initJsonValue(JSON_OBJECT);
+        if(generateNewBlankEntry(newID.value.object)){
+            freeValue(newApp);
+            freeValue(newID);
+            return 4;
+        }
+        if(fillUpWithEntry(newID.value.object,entry)){
+            freeValue(newApp);
+            freeValue(newID);
+            return 4;
+        }
+        if(addToObject(newApp.value.object,entry.id,newID,0)){
+            freeValue(newApp);
+            freeValue(newID);
+            return 4;
+        }
+        if(addToObject(apps_p->value.object,entry.app,newApp,apps_p->value.object->nbOfElement)){
+            freeValue(newApp);
+            freeValue(newID);
+            return 4;
+        }
+        freeValue(newApp);
+        freeValue(newID);
+    }else{
+        JsonValue *IDs_p = &apps_p->value.object->listeOfPair[indexApp].value;
+        size_t indexID = getIndexFromObject(IDs_p->value.object,entry.id);
+        if(indexID == (size_t)-1){
+            // L'ID n'existe pas
+            JsonValue newID = initJsonValue(JSON_OBJECT);
+            if(generateNewBlankEntry(newID.value.object)){
+                freeValue(newID);
+                return 4;
+            }
+            if(fillUpWithEntry(newID.value.object,entry)){
+                freeValue(newID);
+                return 4;
+            }
+            if(addToObject(IDs_p->value.object,entry.id,newID,IDs_p->value.object->nbOfElement)){
+                freeValue(newID);
+                return 4;
+            }
+            freeValue(newID);
+        }else{
+            // L'ID existe deja -> redirigée vers mdf
+        }
+    }
+
+    return 0;
 }
+
 int modPassword(JsonObject *data,char* newPassword){
     int state = 0;
     size_t indexPassword = getIndexFromObject(data,"password");
@@ -80,6 +151,8 @@ int modPassword(JsonObject *data,char* newPassword){
     return 0;
 }
 
+//////////////////////////////
+
 int getTime(char** dest){
     if (dest == NULL){
         return 1;
@@ -100,8 +173,11 @@ int getTime(char** dest){
 }
 
 
-int getVersion(JsonValue vaultRoot){
+int getVersionVault(JsonValue vaultRoot){
     size_t indexVersion = getIndexFromObject(vaultRoot.value.object,"version");
+    if(indexVersion == (size_t) -1){
+        return -1;
+    }
     return vaultRoot.value.object->listeOfPair[indexVersion].value.value.integer;
 }
 
@@ -165,6 +241,57 @@ int generateNewBlankEntry(JsonObject* objDest){
     if(addToObject(objDest,"updated_at",updated_at_v,5)){
         bt_multiFreeValue(1,&updated_at_v);
         return 1;
+    }
+    return 0;
+}
+
+int fillUpWithEntry(JsonObject* obj,CShildEntry entry){
+    if(obj == NULL){
+        return 1;
+    }
+
+    int state = 0;
+    if(entry.pwd != NULL){
+        state = modPassword(obj,entry.pwd);
+        if(state == 1){
+            return 1;
+        }
+    }
+
+    if(entry.note != NULL){
+        size_t indexNote = getIndexFromObject(obj,"note");
+        if(indexNote == (size_t)-1){
+            return 1;
+        }
+        char* note = NULL;
+        if(bt_strcpy(&note,entry.note)){
+            return 1;
+        }
+        freeValue(obj->listeOfPair[indexNote].value);
+        obj->listeOfPair[indexNote].value.value.string = note;
+    }
+
+    if(entry.tags != NULL){
+        size_t indexTags = getIndexFromObject(obj,"tags");
+        if(indexTags == (size_t)-1){
+            return 1;
+        }
+
+        JsonValue newArray = initJsonValue(JSON_ARRAY);
+        for(size_t i=0;i< entry.nbOfTags;i++){
+            JsonValue tag_v = initJsonValue(JSON_STRING);
+            if(bt_strcpy(&tag_v.value.string,entry.tags[i])){
+                freeValue(newArray);
+                return 1;
+            }
+            if(addToArray(newArray.value.array,tag_v,i)){
+                freeValue(tag_v);
+                freeValue(newArray);
+                return 1;
+            }
+        }
+        freeValue(obj->listeOfPair[indexTags].value);
+        obj->listeOfPair[indexTags].value = newArray;
     }
     return 0;
 }

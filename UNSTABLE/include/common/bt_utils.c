@@ -325,6 +325,19 @@ int getCShildDir(char** pathDest){
     return 0;
 }
 
+int getVersionCShild(){
+    JsonValue conf;
+    if(getConf(&conf)){
+        return -1;
+    }
+
+    size_t versionIndex = getIndexFromObject(conf.value.object,"version");
+    if(versionIndex == (size_t)-1){
+        return -1;
+    }
+    return conf.value.object->listeOfPair[versionIndex].value.value.integer;
+}
+
 int getVaultPathFromName(char** destPath,const char* vaultName){
     if(destPath == NULL){
         return 1;
