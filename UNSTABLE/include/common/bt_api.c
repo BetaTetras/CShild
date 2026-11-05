@@ -44,13 +44,13 @@ int addEntry(JsonValue *vaultRoot,CShildEntry entry){
         // L'app n'existe pas
         JsonValue newApp = initJsonValue(JSON_OBJECT);
         if(newJsonObject(&newApp)){
-            LOG_ERROR("Generation of a object failed (newJsonObject)");
+            LOG_ERROR("Creation of an object failed (newJsonObject)");
             freeValue(newApp);
             return 1;
         }
         JsonValue newID = initJsonValue(JSON_OBJECT);
         if(newJsonObject(&newID)){
-            LOG_ERROR("Generation of a object failed (newJsonObject)");
+            LOG_ERROR("Creation of an object failed (newJsonObject)");
             freeValue(newApp);
             return 1;
         }
@@ -69,13 +69,13 @@ int addEntry(JsonValue *vaultRoot,CShildEntry entry){
         if(addToObject(newApp.value.object,entry.id,newID,0)){
             freeValue(newApp);
             freeValue(newID);
-            LOG_ERROR("Adding a new value in a object failed (addToObject)");
+            LOG_ERROR("Adding a new value in an object failed (addToObject)");
             return 1;
         }
         if(addToObject(apps_p->value.object,entry.app,newApp,apps_p->value.object->nbOfElement)){
             freeValue(newApp);
             freeValue(newID);
-            LOG_ERROR("Adding a new value in a object failed (addToObject)");
+            LOG_ERROR("Adding a new value in an object failed (addToObject)");
             return 1;
         }
         freeValue(newApp);
@@ -87,7 +87,7 @@ int addEntry(JsonValue *vaultRoot,CShildEntry entry){
             // L'ID n'existe pas
             JsonValue newID = initJsonValue(JSON_OBJECT);
             if(newJsonObject(&newID)){
-                LOG_ERROR("Generation of a object failed (newJsonObject)");
+                LOG_ERROR("Creation of an object failed (newJsonObject)");
                 return 1;
             }
             if(generateNewBlankEntry(newID.value.object)){
@@ -102,12 +102,12 @@ int addEntry(JsonValue *vaultRoot,CShildEntry entry){
             }
             if(addToObject(IDs_p->value.object,entry.id,newID,IDs_p->value.object->nbOfElement)){
                 freeValue(newID);
-                LOG_ERROR("Adding a new value in a object failed (addToObject)");
+                LOG_ERROR("Adding a new value in an object failed (addToObject)");
                 return 1;
             }
             freeValue(newID);
         }else{
-            LOG_ERROR("User try to add a similar entry (same app and same ID)");
+            LOG_ERROR("User tries to add a similar entry (same app and same ID)");
             // printf ?
             return 1;
         }
@@ -116,85 +116,91 @@ int addEntry(JsonValue *vaultRoot,CShildEntry entry){
     return 0;
 }
 
-int modPassword(JsonObject *data,char* newPassword){
+int modPassword(JsonObject *obj,char* newPassword){
     int state = 0;
-    size_t indexPassword = getIndexFromObject(data,"password");
+    if(bt_strlen(newPassword) == 0){
+        LOG_ERROR("New password empty");
+        return 1;
+    }
+    size_t indexPassword = getIndexFromObject(obj,"password");
     if(indexPassword == (size_t)-1){
         LOG_ERROR("JSON altered or corrupted, key 'password' not found");
         return 1;
     }
-    size_t indexHistory = getIndexFromObject(data,"password_history");
+    size_t indexHistory = getIndexFromObject(obj,"password_history");
     if(indexHistory == (size_t)-1){
         LOG_ERROR("JSON altered or corrupted, key 'password_history' not found");
         return 1;
     }
-    JsonArray* arrayHistory_p = data->listeOfPair[indexHistory].value.value.array;
 
-    JsonValue oldPassword_v = initJsonValue(JSON_OBJECT);
-    if(newJsonObject(&oldPassword_v)){
-        LOG_ERROR("Generation of a object failed (newJsonObject)");
-        return 1;
-    }
-    char* password = NULL;
-    // get the old password
-    state = bt_strcpy(&password,data->listeOfPair[indexPassword].value.value.string);
-    if(state == 1){
-        LOG_ERROR("copy of an string failed (bt_strcpy)");
-        freeValue(oldPassword_v);
-        return 1;
-    }
-    JsonValue password_v = initJsonValue(JSON_STRING);
-    password_v.value.string = password;
-    // get the time
-    char* date = NULL;
-    state = getTime(&date);
-    if(state == 1){
-        freeValue(password_v);      // efface puis libère la copie de l'ancien mot de passe
-        freeValue(oldPassword_v);
-        LOG_ERROR("Impossible to fetch actual time (getTime)");
-        return 1;
-    }
+    if(bt_strlen(obj->listeOfPair[indexPassword].value.value.string) > 0){
+        JsonArray* arrayHistory_p = obj->listeOfPair[indexHistory].value.value.array;
 
-    JsonValue date_v = initJsonValue(JSON_STRING);
-    date_v.value.string = date;
+        JsonValue oldPassword_v = initJsonValue(JSON_OBJECT);
+        if(newJsonObject(&oldPassword_v)){
+            LOG_ERROR("Creation of an object failed (newJsonObject)");
+            return 1;
+        }
+        char* password = NULL;
+        // get the old password
+        state = bt_strcpy(&password,obj->listeOfPair[indexPassword].value.value.string);
+        if(state == 1){
+            LOG_ERROR("Copy of a string failed (bt_strcpy)");
+            freeValue(oldPassword_v);
+            return 1;
+        }
+        JsonValue password_v = initJsonValue(JSON_STRING);
+        password_v.value.string = password;
+        // get the time
+        char* date = NULL;
+        state = getTime(&date);
+        if(state == 1){
+            freeValue(password_v);
+            freeValue(oldPassword_v);
+            LOG_ERROR("Impossible to fetch actual time (getTime)");
+            return 1;
+        }
 
-    // addToObject et addToArray COPIENT les valeurs : on libère donc nos originaux dans tous les cas
-    state = addToObject(oldPassword_v.value.object,"password",password_v,0);
-    freeValue(password_v);
-    if(state == 1){
+        JsonValue date_v = initJsonValue(JSON_STRING);
+        date_v.value.string = date;
+
+        state = addToObject(oldPassword_v.value.object,"password",password_v,0);
+        freeValue(password_v);
+        if(state == 1){
+            freeValue(date_v);
+            freeValue(oldPassword_v);
+            LOG_ERROR("Adding a new value in an object failed (addToObject)");
+            return 1;
+        }
+        state = addToObject(oldPassword_v.value.object,"changed_at",date_v,1);
         freeValue(date_v);
-        freeValue(oldPassword_v);
-        LOG_ERROR("Adding a new value in a object failed (addToObject)");
-        return 1;
-    }
-    state = addToObject(oldPassword_v.value.object,"changed_at",date_v,1);
-    freeValue(date_v);
-    if(state == 1){
-        freeValue(oldPassword_v);
-        LOG_ERROR("Adding a new value in a object failed (addToObject)");
-        return 1;
-    }
+        if(state == 1){
+            freeValue(oldPassword_v);
+            LOG_ERROR("Adding a new value in an object failed (addToObject)");
+            return 1;
+        }
 
-    size_t numberOfElementHistory  = data->listeOfPair[indexHistory].value.value.array->nbOfElement;
-    state = addToArray(arrayHistory_p,oldPassword_v,numberOfElementHistory);
-    freeValue(oldPassword_v);
-    if(state == 1){
-        LOG_ERROR("Adding a new value in a array failed (addToArray)");
-        return 1;
+        size_t numberOfElementHistory  = obj->listeOfPair[indexHistory].value.value.array->nbOfElement;
+        state = addToArray(arrayHistory_p,oldPassword_v,numberOfElementHistory);
+        freeValue(oldPassword_v);
+        if(state == 1){
+            LOG_ERROR("Adding a new value in an array failed (addToArray)");
+            return 1;
+        }
     }
 
     char* buffer = NULL;
     state = bt_strcpy(&buffer,newPassword);
     if(state == 1){
-        LOG_ERROR("copy of an string failed (bt_strcpy)");
+        LOG_ERROR("Copy of a string failed (bt_strcpy)");
         return 1;
     }
-    char* oldPassword_str = data->listeOfPair[indexPassword].value.value.string;
+    char* oldPassword_str = obj->listeOfPair[indexPassword].value.value.string;
     stringToZero(oldPassword_str,bt_strlen(oldPassword_str)+1);
     stringToZero(newPassword,bt_strlen(newPassword)+1);
     free(oldPassword_str);
 
-    data->listeOfPair[indexPassword].value.value.string = buffer;
+    obj->listeOfPair[indexPassword].value.value.string = buffer;
 
     return 0;
 }
@@ -246,12 +252,12 @@ int generateNewBlankEntry(JsonObject* objDest){
     JsonValue note_v = initJsonValue(JSON_STRING);
     JsonValue tags_v = initJsonValue(JSON_ARRAY);
     if(newJsonArray(&tags_v)){
-        LOG_ERROR("Generation of a array failed (newJsonObject)");
+        LOG_ERROR("Creation of an array failed (newJsonArray)");
         return 1;
     }
     JsonValue password_history_v = initJsonValue(JSON_ARRAY);
     if(newJsonArray(&password_history_v)){
-        LOG_ERROR("Generation of a array failed (newJsonObject)");
+        LOG_ERROR("Creation of an array failed (newJsonArray)");
         freeValue(tags_v);
         return 1;
     }
@@ -285,32 +291,32 @@ int generateNewBlankEntry(JsonObject* objDest){
 
     if(addToObject(objDest,"password",password_v,0)){
         bt_multiFreeValue(6,&password_v,&note_v,&tags_v,&password_history_v,&created_at_v,&updated_at_v);
-        LOG_ERROR("Adding a new value in a object failed (addToObject)");
+        LOG_ERROR("Adding a new value in an object failed (addToObject)");
         return 1;
     }
     if(addToObject(objDest,"note",note_v,1)){
         bt_multiFreeValue(6,&password_v,&note_v,&tags_v,&password_history_v,&created_at_v,&updated_at_v);
-        LOG_ERROR("Adding a new value in a object failed (addToObject)");
+        LOG_ERROR("Adding a new value in an object failed (addToObject)");
         return 1;
     }
     if(addToObject(objDest,"tags",tags_v,2)){
         bt_multiFreeValue(6,&password_v,&note_v,&tags_v,&password_history_v,&created_at_v,&updated_at_v);
-        LOG_ERROR("Adding a new value in a object failed (addToObject)");
+        LOG_ERROR("Adding a new value in an object failed (addToObject)");
         return 1;
     }
     if(addToObject(objDest,"password_history",password_history_v,3)){
         bt_multiFreeValue(6,&password_v,&note_v,&tags_v,&password_history_v,&created_at_v,&updated_at_v);
-        LOG_ERROR("Adding a new value in a object failed (addToObject)");
+        LOG_ERROR("Adding a new value in an object failed (addToObject)");
         return 1;
     }
     if(addToObject(objDest,"created_at",created_at_v,4)){
         bt_multiFreeValue(6,&password_v,&note_v,&tags_v,&password_history_v,&created_at_v,&updated_at_v);
-        LOG_ERROR("Adding a new value in a object failed (addToObject)");
+        LOG_ERROR("Adding a new value in an object failed (addToObject)");
         return 1;
     }
     if(addToObject(objDest,"updated_at",updated_at_v,5)){
         bt_multiFreeValue(6,&password_v,&note_v,&tags_v,&password_history_v,&created_at_v,&updated_at_v);
-        LOG_ERROR("Adding a new value in a object failed (addToObject)");
+        LOG_ERROR("Adding a new value in an object failed (addToObject)");
         return 1;
     }
     bt_multiFreeValue(6,&password_v,&note_v,&tags_v,&password_history_v,&created_at_v,&updated_at_v);
@@ -340,7 +346,7 @@ int fillUpWithEntry(JsonObject* obj,CShildEntry entry){
         }
         char* note = NULL;
         if(bt_strcpy(&note,entry.note)){
-            LOG_ERROR("copy of an string failed (bt_strcpy)");
+            LOG_ERROR("Copy of a string failed (bt_strcpy)");
             return 1;
         }
         freeValue(obj->listeOfPair[indexNote].value);
@@ -356,21 +362,21 @@ int fillUpWithEntry(JsonObject* obj,CShildEntry entry){
 
         JsonValue newArray = initJsonValue(JSON_ARRAY);
         if(newJsonArray(&newArray)){
-            LOG_ERROR("Generation of a array failed (newJsonObject)");
+            LOG_ERROR("Creation of an array failed (newJsonArray)");
             return 1;
         }
         for(size_t i=0;i< entry.nbOfTags;i++){
             JsonValue tag_v = initJsonValue(JSON_STRING);
             if(bt_strcpy(&tag_v.value.string,entry.tags[i])){
                 freeValue(newArray);
-                LOG_ERROR("copy of an string failed (bt_strcpy)");
+                LOG_ERROR("Copy of a string failed (bt_strcpy)");
                 return 1;
             }
             state = addToArray(newArray.value.array,tag_v,i);
             freeValue(tag_v);
             if(state){
                 freeValue(newArray);
-                LOG_ERROR("Adding a new value in a array failed (addToArray)");
+                LOG_ERROR("Adding a new value in an array failed (addToArray)");
                 return 1;
             }
         }
