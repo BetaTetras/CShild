@@ -341,8 +341,10 @@ int getVersionCShild(){
 
     size_t versionIndex = getIndexFromObject(conf.value.object,"version");
     if(versionIndex == (size_t)-1){
+        freeValue(conf);
         return -1;
     }
+    freeValue(conf);
     return conf.value.object->listeOfPair[versionIndex].value.value.integer;
 }
 
@@ -357,7 +359,7 @@ int getVaultPathFromName(char** destPath,const char* vaultName){
     if(state == 1){
         return 1;
     }
-    sprintf(&path,"%s/UNSTABLE/vaults/%s.cshild",path,vaultName);
+    sprintf(path,"%s/UNSTABLE/vaults/%s.cshild",path,vaultName);
 
     state = bt_strcpy(destPath,path);
     if(state){

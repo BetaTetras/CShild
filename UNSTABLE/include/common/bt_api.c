@@ -16,6 +16,11 @@ int addEntry(JsonValue *vaultRoot,CShildEntry entry){
         LOG_ERROR("Corrupted pointer (vaultRoot == NULL or not an object)");
         return 1;
     }
+    if(entry.app == NULL || entry.id == NULL){
+        LOG_ERROR("App name or ID null");
+        return 1;
+    }
+    int state = 0;
     size_t indexor = 0;
     // Vérification des version 
     int versionCShild = getVersionCShild();
@@ -60,11 +65,16 @@ int addEntry(JsonValue *vaultRoot,CShildEntry entry){
             LOG_ERROR("Generation of a blank entry failed (generateNewBlankEntry)");
             return 1;
         }
-        if(fillUpWithEntry(newID.value.object,entry)){
+        state = fillUpWithEntry(newID.value.object,entry);
+        if(state == 1){
             freeValue(newApp);
             freeValue(newID);
             LOG_ERROR("Filling of an object from an entry failed (fillUpWithEntry)");
             return 1;
+        }else if(state == 2){
+            freeValue(newApp);
+            freeValue(newID);
+            return 2;
         }
         if(addToObject(newApp.value.object,entry.id,newID,0)){
             freeValue(newApp);
@@ -95,10 +105,14 @@ int addEntry(JsonValue *vaultRoot,CShildEntry entry){
                 LOG_ERROR("Generation of a blank entry failed (generateNewBlankEntry)");
                 return 1;
             }
-            if(fillUpWithEntry(newID.value.object,entry)){
+            state = fillUpWithEntry(newID.value.object,entry);
+            if(state == 1){
                 freeValue(newID);
                 LOG_ERROR("Filling of an object from an entry failed (fillUpWithEntry)");
                 return 1;
+            }else if(state == 2){
+                freeValue(newID);
+                return 2;
             }
             if(addToObject(IDs_p->value.object,entry.id,newID,IDs_p->value.object->nbOfElement)){
                 freeValue(newID);
@@ -106,10 +120,8 @@ int addEntry(JsonValue *vaultRoot,CShildEntry entry){
                 return 1;
             }
             freeValue(newID);
-        }else{
-            LOG_ERROR("User tries to add a similar entry (same app and same ID)");
-            // printf ?
-            return 1;
+        }else{  
+            return 3;
         }
     }
 
@@ -119,8 +131,7 @@ int addEntry(JsonValue *vaultRoot,CShildEntry entry){
 int modPassword(JsonObject *obj,char* newPassword){
     int state = 0;
     if(bt_strlen(newPassword) == 0){
-        LOG_ERROR("New password empty");
-        return 1;
+        return 2;
     }
     size_t indexPassword = getIndexFromObject(obj,"password");
     if(indexPassword == (size_t)-1){
@@ -335,6 +346,9 @@ int fillUpWithEntry(JsonObject* obj,CShildEntry entry){
         if(state == 1){
             LOG_ERROR("Modification of password failed (modPassword)");
             return 1;
+        }else if(state == 2){
+            LOG_ERROR("Password empty recorded");
+            return 2;
         }
     }
 

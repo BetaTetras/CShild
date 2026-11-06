@@ -2,6 +2,9 @@
 #define BT_UTILS_H
 
 #include <stddef.h>
+#include <stdint.h>
+
+#include "../CSON/cson.h"
 
 typedef struct {
     const char* app;
