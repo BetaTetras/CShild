@@ -42,11 +42,13 @@ int main(int argc, char *argv[]) {
              isOneOfThemEqual(argv[1],3,"--version","-v","-V")){
         m = oth;
     }else{
+        print_ERR("Methode '%s' non-existant...",argv[1]);
+        printf("\n");
+        print_INF("You can check command with 'chsild --help'");
         return 1;
     }
 
-    switch (m)
-    {
+    switch (m){
     case crt:{
         if(argc < 3){
             print_ERR("Not enough arguments (%d aruments)",argc);
@@ -66,7 +68,6 @@ int main(int argc, char *argv[]) {
         }
 
         char* vaultPWD = NULL;
-        char* newPWD = NULL;
         char* vaultPath = NULL;
 
         // Entrée du mot de passe
@@ -78,7 +79,7 @@ int main(int argc, char *argv[]) {
         }
         state = getVaultPathFromName(&vaultPath,argv[2]);
         if(state == 1){
-            print_ERR("Error while getting the path of the path of the vault '%s'",argv[2]);
+            print_ERR("Error while getting the path of the vault '%s'",argv[2]);
             return 1;
         }
         
@@ -88,29 +89,124 @@ int main(int argc, char *argv[]) {
         size_t size_decryptedVault;
         state = readVault(&b_encryptedVault,&size_encryptedVault,vaultPath);
         if(state == 1){
-            print_ERR("Error while getting the path of the path of the vault '%s'",argv[2]);
+            print_ERR("Error while reading the vault '%s'",argv[2]);
+            return 1;
+        }else if(state == 2){
+            print_ERR("Vault size >= 64 MO");
             return 1;
         }
-        AES_GCM_Decrypt(&b_decryptedVault,&size_decryptedVault,b_encryptedVault,size_encryptedVault,vaultPWD);
+
+        state = AES_GCM_Decrypt(&b_decryptedVault,&size_decryptedVault,b_encryptedVault,size_encryptedVault,vaultPWD);
+        if(state == AES_ERR_PARAM){
+            print_ERR("One of the parameter of AES_GCM_Decrypt is a null pointer");
+            return 1;
+        }else if(state == AES_ERR_VERSION){
+            print_WRN("The encrypting file version is not the same as AES version");
+            return 1;
+            // A changée pour compatiblitée plus tard
+        }else if(state == AES_ERR_MEMOIRE){
+            print_ERR("Error occured while allocating memory");
+            return 1;
+        }else if(state == AES_ERR_MDP){
+            print_ERR("Wrong password");
+            return 1;
+        }else if(state == AES_ERR_AUTH){
+            print_ERR("Vault altered while encrypted");
+            return 1;
+        }else if(state == AES_ERR_FORMAT){
+            print_ERR("The vault file is not valid encrypted data (too short or corrupted)");
+            return 1;
+        }else if(state != AES_OK){
+            print_ERR("An unknow error occured...");
+            return 1;
+        }
+
         JsonValue vaultRoot = initCson((char*)b_decryptedVault);
 
         state = addEntry(&vaultRoot,e);
         if(state == 1){
             print_ERR("Something went wrong during opperation of creation");
+            return 1;
         }else if(state == 2){
-            print_ERR("Password Empty");
+            print_ERR("Password empty");
+            return 1;
         }else if(state == 3){
             print_ERR("Entry alread existing");
+            return 1;
         }
+
+        char* jsonTmp = NULL;
+        if(sprintfValue(&jsonTmp,vaultRoot)){
+            print_ERR("An error occured while transforming an JsonValue in a string");
+            return 1;
+        }
+        uint8_tToZero(b_decryptedVault,size_decryptedVault + 1);
+        free(b_decryptedVault);
+        b_decryptedVault = (uint8_t*)jsonTmp;
+        size_decryptedVault = bt_strlen(jsonTmp);
+        
+        free(b_encryptedVault);
+        b_encryptedVault = NULL;
+        state = AES_GCM_Encrypt(&b_encryptedVault,&size_encryptedVault,b_decryptedVault,size_decryptedVault,vaultPWD);
+        if(state == AES_ERR_PARAM){
+            print_ERR("One of the parameter of AES_GCM_Encrypt is a null pointer");
+            return 1;
+        }else if(state == AES_ERR_TAILLE){
+            print_ERR("The size of the vault exed 64 GO");
+            return 1;
+        }else if(state == AES_ERR_ALEA){
+            print_ERR("An error whith random occured (urandom or BCryptGenRandom)");
+            return 1;
+        }else if(state == AES_ERR_MEMOIRE){
+            print_ERR("Error occured while allocating memory");
+            return 1;
+        }else if(state != AES_OK){
+            print_ERR("An unknow error occured...");
+            return 1;
+        }
+
+        state = writeVault(b_encryptedVault,size_encryptedVault,vaultPath);
+        if(state == 1){
+            print_ERR("An error occured while writing the encrypted data in a file");
+            return 1;
+        }
+
         print_SUC("New entry successfully push");
 
-        uint8_tToZero(&b_encryptedVault,size_encryptedVault);
-        uint8_tToZero(&b_decryptedVault,size_decryptedVault);
-        nukeString(&vaultPWD,bt_strlen(vaultPWD));
+        uint8_tToZero(b_encryptedVault,size_encryptedVault);
+        uint8_tToZero(b_decryptedVault,size_decryptedVault);
+        nukeString(vaultPWD,bt_strlen(vaultPWD));
+
+        free(b_encryptedVault);
+        free(b_decryptedVault);
+        free(vaultPWD);
+        free(vaultPath);
+        freeValue(vaultRoot);
+        bt_deepFree(e.nbOfTags,(void**)e.tags);
+
 
         break;
     }
-    
+    case dlt:{
+        print_INF("methode dlt not implemented");
+        break;
+    }
+    case mdf:{
+        print_INF("methode mdf not implemented");
+        break;
+    }
+    case shw:{
+        print_INF("methode shw not implemented");
+        break;
+    }
+    case gen:{
+        print_INF("methode gen not implemented");
+        break;
+    }
+    case oth:{
+        print_INF("methode oth not implemented");
+        break;
+    }
     
     default:
         break;
@@ -220,7 +316,7 @@ static int fillUpEntryFromARGV(CShildEntry* e,char* argv[],int argc){
             }
             i += numOfTags;
             e->nbOfTags = numOfTags;
-            e->tags = (const char**)tags;
+            e->tags = tags;
         }else{
             // Commande de crt non reconnue
             print_ERR("Argument '%s' does not exist for the command '%s'",argv[i],argv[1]);

@@ -7,11 +7,11 @@
 #include "../CSON/cson.h"
 
 typedef struct {
-    const char* app;
-    const char* id;
-    const char* pwd;
-    const char* note;
-    const char** tags;
+    char* app;
+    char* id;
+    char* pwd;
+    char* note;
+    char** tags;
     size_t nbOfTags;
 }CShildEntry;
 
@@ -32,8 +32,10 @@ int getConf(JsonValue* destConf);
 int parseVaultName(char** dest,const char* src);
 int getCShildDir(char** pathDest);
 int getVersionCShild();
+int getVaultsPath(char** dest);
 int getVaultPathFromName(char** destPath,const char* vaultName);
 int readVault(uint8_t** dest,size_t* size,const char* path);
+int writeVault(const uint8_t* src,const size_t size,const char* path);
 void bt_multiFree(size_t numberToFree,...);
 void bt_multiFreeValue(size_t numberToFree,...);
 void bt_deepFree(size_t numberToFree,void** p);

@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <dirent.h>
+#include <errno.h>
+#include <string.h>
 
 #ifdef _WIN32
     #include <windows.h>
@@ -17,6 +19,9 @@
 #include "AES.h"
 #include "bt_utils.h"
 #include "bt_log.h"
+
+// 64 MO =  67 108 864 O
+#define VAULT_MAX_SIZE (64L * 1024 * 1024)
 
 size_t bt_strlen(const char* str){
     if(str == NULL){
@@ -344,45 +349,67 @@ int getVersionCShild(){
         freeValue(conf);
         return -1;
     }
+    int version = conf.value.object->listeOfPair[versionIndex].value.value.integer;
     freeValue(conf);
-    return conf.value.object->listeOfPair[versionIndex].value.value.integer;
+    return version;
 }
 
 int getVaultPathFromName(char** destPath,const char* vaultName){
-    if(destPath == NULL){
+    if(destPath == NULL || vaultName == NULL){
         return 1;
     }
 
-    int state = 0;
-    char* path = NULL;
-    state = getCShildDir(&path);
-    if(state == 1){
+    char* vaultsPath = NULL;
+    if(getVaultsPath(&vaultsPath)){
+        LOG_ERROR("Error while getting the vaults path");
         return 1;
     }
-    sprintf(path,"%s/UNSTABLE/vaults/%s.cshild",path,vaultName);
+    size_t vaultsPath_size = bt_strlen(vaultsPath);
+    size_t final_size = vaultsPath_size + bt_strlen(vaultName) + 9;
+    char* ThaoLin = realloc(vaultsPath,final_size);
+    if(ThaoLin == NULL){
+        free(vaultsPath);
+        LOG_ERROR("Error while allocating memory");
+        return 1;
+    }
+    vaultsPath = ThaoLin;
 
-    state = bt_strcpy(destPath,path);
-    if(state){
+    int state = snprintf(vaultsPath + vaultsPath_size,final_size - vaultsPath_size,"/%s.cshild",vaultName);
+    if(state < 0 || (size_t) state >= final_size - vaultsPath_size){
+        free(vaultsPath);
+        LOG_ERROR("Path troncate    ");
         return 1;
     }
+
+    free(*destPath); 
+    *destPath = vaultsPath; 
     return 0;
 }
 
 int readVault(uint8_t** dest,size_t* size,const char* path){
     if(dest == NULL || size == NULL || path == NULL){
+        LOG_ERROR("One of the parameter is null");
         return 1;
     }
     FILE* f = fopen(path,"rb");
     if(f == NULL){
+        LOG_ERROR(strerror(errno));
         return 1;
     }
 
     if(fseek(f,0,SEEK_END) != 0){
+        LOG_ERROR("Error fseek");
         fclose(f);
         return 1;
     }
     long len = ftell(f);
+    if(len > VAULT_MAX_SIZE){
+        LOG_ERROR("Vault too big or wrong path (ftell > 64MO)");
+        fclose(f);
+        return 2;
+    }
     if(len <= 0){
+        LOG_ERROR("Error from ftell");
         fclose(f);
         return 1;
     }
@@ -390,10 +417,12 @@ int readVault(uint8_t** dest,size_t* size,const char* path){
     
     uint8_t* buffer = calloc((size_t)len,sizeof(uint8_t));
     if(buffer == NULL){
+        LOG_ERROR("Error while allocating memory");
         fclose(f);
         return 1;
     }
     if(fread(buffer,1,(size_t)len,f) != (size_t)len){
+        LOG_ERROR("Read the wrong amount of octet");
         free(buffer);
         fclose(f);
         return 1;
@@ -401,6 +430,103 @@ int readVault(uint8_t** dest,size_t* size,const char* path){
     fclose(f);
     *dest = buffer;
     *size = (size_t)len;
+    return 0;
+}
+
+int writeVault(const uint8_t* src,const size_t size,const char* path){
+    if(src == NULL || size == 0 || path == NULL){
+        return 1;
+    }
+    char* pathTmp = NULL;
+    if(bt_strcpy(&pathTmp,path)){
+        LOG_ERROR("Error while copying a string (bt_strcpy(&pathTmp,path))");
+        free(pathTmp);
+        return 1;
+    }
+    if(bt_strcat(&pathTmp,".tmp")){
+        LOG_ERROR("Error while copying a string (bt_strcat(&pathTmp,\".tmp\"))");
+        free(pathTmp);
+        return 1;
+    }
+    FILE* f = fopen(pathTmp,"wb");
+    if(f == NULL){
+        LOG_ERROR(strerror(errno));
+        free(pathTmp);
+        return 1;
+    }
+
+    if(fwrite(src,size,1,f) != 1){
+        LOG_ERROR(strerror(errno));
+        fclose(f);
+        remove(pathTmp);
+        free(pathTmp);
+        return 1;
+    }
+    
+    if(fclose(f) != 0){
+        LOG_ERROR(strerror(errno));
+        remove(pathTmp);
+        free(pathTmp);
+        return 1;
+    }
+
+    #ifdef _WIN32
+        if(!MoveFileExA(pathTmp, path, MOVEFILE_REPLACE_EXISTING)){
+            char error[64];
+            sprintf(error,"MoveFileExA failed (code = %lu)",(long unsigned)GetLastError());
+            LOG_ERROR(error);
+            remove(pathTmp);
+            free(pathTmp);
+            return 1;
+        }
+    #else
+        if(rename(pathTmp,path)){
+            LOG_ERROR(strerror(errno));
+            remove(pathTmp);
+            free(pathTmp);
+            return 1;
+        }
+    #endif
+
+    free(pathTmp);
+    return 0;
+}
+
+int getVaultsPath(char** dest){
+    if(dest == NULL){
+        return 1;
+    }
+    JsonValue conf;
+    if(getConf(&conf)){
+        LOG_ERROR("Impossible to get conf.json");
+        return 1;
+    }
+    if(conf.type != JSON_OBJECT){
+        LOG_ERROR("conf.json altered (conf.json is not a object)");
+        freeValue(conf);
+        return 1;
+    }
+    
+    size_t indexPath = getIndexFromObject(conf.value.object,"vaults_dir_path");
+    if(indexPath == (size_t)-1){
+        LOG_ERROR("conf.json altered (no \"vaults_dir_path\" key)");
+        freeValue(conf);
+        return 1;
+    }
+    if(conf.value.object->listeOfPair[indexPath].value.type != JSON_STRING){
+        LOG_ERROR("conf.json altered (\"vaults_dir_path\" is not a string)");
+        freeValue(conf);
+        return 1;
+    }
+    char* path = NULL;
+    if(bt_strcpy(&path,conf.value.object->listeOfPair[indexPath].value.value.string)){
+        LOG_ERROR("Error while copying a string (bt_strcpy)");
+        free(path);
+        freeValue(conf);
+        return 1;
+    }
+    *dest = path;
+    freeValue(conf);
     return 0;
 }
 

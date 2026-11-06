@@ -83,27 +83,27 @@ static void printLevel(int r, int g, int b, const char* symbol, const char* labe
 void print_ERR(const char* format, ...){
     va_list args;
     va_start(args,format);
-    printLevel(255,0,0,"✗","ERROR",format,args);
+    printLevel(255,0,0,"✗","ERR",format,args);
     va_end(args);
 }
 
 void print_INF(const char* format, ...){
     va_list args;
     va_start(args,format);
-    printLevel(127,0,255,"ⓘ","INFO",format,args);
+    printLevel(127,0,255,"ℹ","INF",format,args);
     va_end(args);
 }
 
 void print_WRN(const char* format, ...){
     va_list args;
     va_start(args,format);
-    printLevel(255,165,0,"⚑","WARNING",format,args);
+    printLevel(255,165,0,"⚑","WRN",format,args);
     va_end(args);
 }
 
 void print_SUC(const char* format, ...){
     va_list args;
     va_start(args,format);
-    printLevel(0,255,0,"✓","SUCCESS",format,args);
+    printLevel(0,255,0,"✓","SUC",format,args);
     va_end(args);
 }
