@@ -530,6 +530,23 @@ int getVaultsPath(char** dest){
     return 0;
 }
 
+int getValidation(void){
+    int rep = getchar();
+    int c = rep;
+    while (c != '\n' && c != EOF){
+        c = getchar();
+    }
+
+    if (rep == 'Y' || rep == 'y'){
+        return 1;
+    }
+    if (rep == 'N' || rep == 'n'){
+        return 0;
+    }
+
+    return 2;
+}
+
 void bt_multiFree(size_t numberToFree,...){
     va_list liste;
     va_start(liste, numberToFree);

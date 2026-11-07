@@ -128,6 +128,82 @@ int addEntry(JsonValue *vaultRoot,CShildEntry entry){
     return 0;
 }
 
+
+int removeEntry(JsonValue *vaultRoot,CShildEntry entry,int* numberOfEntryRemoved){
+    if(vaultRoot == NULL || vaultRoot->type != JSON_OBJECT || numberOfEntryRemoved == NULL){
+        LOG_ERROR("Corrupted pointer (vaultRoot == NULL,numberOfEntryRemoved == NULL or not an object)");
+        return 1;
+    }
+    if(entry.app == NULL){
+        LOG_ERROR("App name null");
+        return 1;
+    }
+    numberOfEntryRemoved = 0;
+    int state = 0;
+    size_t indexor = 0;
+    int versionCShild = getVersionCShild();
+    if(versionCShild == -1){
+        LOG_ERROR("Impossible to fetch the version of CShild");
+        return 1;
+    }
+    int versionVault = getVersionVault(*vaultRoot);
+    if(versionVault == -1){
+        LOG_ERROR("Impossible to fetch the version of the vault");
+        return 1;
+    }else if(versionCShild != versionVault){
+        LOG_ERROR("Version of CShild and the vault different");
+        return 1;
+    }
+
+    indexor = getIndexFromObject(vaultRoot->value.object,"apps");
+    if(indexor == (size_t)-1){
+        LOG_ERROR("JSON of the vault altered - key 'apps' not found");
+        return 1;
+    }
+    // L'application existe t'elle ?
+    JsonValue *apps_p = &vaultRoot->value.object->listeOfPair[indexor].value;
+    if(apps_p->type != JSON_OBJECT){
+        LOG_ERROR("JSON of the vault altered - Application value is not an object");
+        return 1;
+    }
+    size_t indexApp = getIndexFromObject(apps_p->value.object,entry.app);
+    if(indexApp == (size_t)-1){
+        // L'app n'existe pas
+        return 2;
+    }
+
+    JsonValue *IDs_p = &apps_p->value.object->listeOfPair[indexApp].value;
+    if(IDs_p->type != JSON_OBJECT){
+        LOG_ERROR("JSON of the vault altered - ID value is not an object");
+        return 1;
+    }
+    if(entry.id == NULL){
+        // On détruit TOUT l'app
+        *numberOfEntryRemoved = apps_p->value.object->listeOfPair[indexApp].value.value.object->nbOfElement;
+        state = removeToObject(apps_p->value.object,indexApp);
+        if(state == 1){
+            LOG_ERROR("Removing a value in an object failed (removeToObject)");
+            return 1;
+        }
+        return 0;
+    }else{
+        // On détruit un compte
+        size_t indexID = getIndexFromObject(IDs_p->value.object,entry.id);
+        if(indexID == (size_t)-1){
+            // L'ID n'existe pas
+            return 3;
+        }
+        *numberOfEntryRemoved = 1;
+        state = removeToObject(IDs_p->value.object,indexID);
+        if(state == 1){
+            LOG_ERROR("Removing a value in an object failed (removeToObject)");
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 int modPassword(JsonObject *obj,char* newPassword){
     int state = 0;
     if(bt_strlen(newPassword) == 0){

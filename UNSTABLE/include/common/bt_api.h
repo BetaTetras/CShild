@@ -16,6 +16,8 @@
 // si les versions de CShild et du vault diffèrent ou si le vault est altéré.
 int addEntry(JsonValue *vaultRoot, CShildEntry entry);
 
+int removeEntry(JsonValue *vaultRoot,CShildEntry entry,int* numberOfEntryRemoved);
+
 // Remplace le mot de passe de data et déplace l'ancien dans "password_history" (avec la date).
 // ATTENTION : efface newPassword (stringToZero) une fois copié, il ne doit pas être réutilisé.
 int modPassword(JsonObject *data, char* newPassword);

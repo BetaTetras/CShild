@@ -17,7 +17,8 @@ typedef enum {
     oth
 } methode;
 
-static int fillUpEntryFromARGV(CShildEntry* e,char* argv[],int argc);
+static int fillUpEntryFromARGV(CShildEntry* e,char* argv[],int argc,methode m);
+int AES_GCM_Decrypt_returnCodeHandler(int code);
 
 int main(int argc, char *argv[]) {
     int state = 0;
@@ -62,7 +63,7 @@ int main(int argc, char *argv[]) {
 
         CShildEntry e;
 
-        state = fillUpEntryFromARGV(&e,argv,argc);
+        state = fillUpEntryFromARGV(&e,argv,argc,m);
         if(state == 1){
             return 1;
         }
@@ -97,27 +98,7 @@ int main(int argc, char *argv[]) {
         }
 
         state = AES_GCM_Decrypt(&b_decryptedVault,&size_decryptedVault,b_encryptedVault,size_encryptedVault,vaultPWD);
-        if(state == AES_ERR_PARAM){
-            print_ERR("One of the parameter of AES_GCM_Decrypt is a null pointer");
-            return 1;
-        }else if(state == AES_ERR_VERSION){
-            print_WRN("The encrypting file version is not the same as AES version");
-            return 1;
-            // A changée pour compatiblitée plus tard
-        }else if(state == AES_ERR_MEMOIRE){
-            print_ERR("Error occured while allocating memory");
-            return 1;
-        }else if(state == AES_ERR_MDP){
-            print_ERR("Wrong password");
-            return 1;
-        }else if(state == AES_ERR_AUTH){
-            print_ERR("Vault altered while encrypted");
-            return 1;
-        }else if(state == AES_ERR_FORMAT){
-            print_ERR("The vault file is not valid encrypted data (too short or corrupted)");
-            return 1;
-        }else if(state != AES_OK){
-            print_ERR("An unknow error occured...");
+        if(AES_GCM_Decrypt_returnCodeHandler(state)){
             return 1;
         }
 
@@ -188,7 +169,72 @@ int main(int argc, char *argv[]) {
         break;
     }
     case dlt:{
-        print_INF("methode dlt not implemented");
+        if(argc < 3){
+            print_ERR("Not enough arguments (%d aruments)",argc);
+            return 1;
+        }
+        state = vaultAreadyCreated(argv[2]);
+        if(state != 1){
+            print_ERR("vault name '%s' not found",argv[2]);
+            return 1;
+        }
+
+        CShildEntry e;
+
+        state = fillUpEntryFromARGV(&e,argv,argc,m);
+        if(state == 1){
+            return 1;
+        }
+        if(e.id == NULL){
+            print_WRN("ID not provided, will proceed to remove ALL entries from '%s'","testApp");
+            printf("Continue ? : ");printf("[");char_RGB(0,255,0,'Y');printf("/");char_RGB(255,0,0,'n');printf("] : ");
+            state = getValidation();
+
+            if(state == 0){
+                print_INF("Action canceled");
+                bt_deepFree(e.nbOfTags,(void**)e.tags);
+                return 1;
+            }else if(state == 3){
+                print_ERR("Not a valid respond, Action canceled (Must respond with 'Y' or 'N')");
+                bt_deepFree(e.nbOfTags,(void**)e.tags);
+                return 1;
+            }
+        }
+
+        char* vaultPWD = NULL;
+        char* vaultPath = NULL;
+
+        printf("Enter the password of the vault : ");
+        state = bt_fgetss(&vaultPWD);
+        if(state != 0){
+            print_ERR("Error while getting the entred password");
+            return 1;
+        }
+        state = getVaultPathFromName(&vaultPath,argv[2]);
+        if(state == 1){
+            print_ERR("Error while getting the path of the vault '%s'",argv[2]);
+            return 1;
+        }
+
+        uint8_t* b_encryptedVault = NULL;
+        uint8_t* b_decryptedVault = NULL;
+        size_t size_encryptedVault;
+        size_t size_decryptedVault;
+        if(state == 1){
+            print_ERR("Error while reading the vault '%s'",argv[2]);
+            return 1;
+        }else if(state == 2){
+            print_ERR("Vault size >= 64 MO");
+            return 1;
+        }
+
+        state = AES_GCM_Decrypt(&b_decryptedVault,&size_decryptedVault,b_encryptedVault,size_encryptedVault,vaultPWD);
+        if(AES_GCM_Decrypt_returnCodeHandler(state)){
+            return 1;
+        }
+
+        JsonValue vaultRoot = initCson((char*)b_decryptedVault);
+
         break;
     }
     case mdf:{
@@ -217,7 +263,7 @@ int main(int argc, char *argv[]) {
 
 
 
-static int fillUpEntryFromARGV(CShildEntry* e,char* argv[],int argc){
+static int fillUpEntryFromARGV(CShildEntry* e,char* argv[],int argc,methode m){
     int state = 0;
     int paramAPP = 0;
     int paramID = 0;
@@ -262,6 +308,11 @@ static int fillUpEntryFromARGV(CShildEntry* e,char* argv[],int argc){
             e->id = argv[i+1];
             i++;
         }else if(isOneOfThemEqual(argv[i],2,"--note","-n")){
+            if(m == dlt){
+                print_WRN("The parameter '--note' is useless for the methode dlt");
+                i++;
+                continue;
+            }
             if(i+1 >= argc){
                 // Il manque la note dans la commande
                 print_ERR("Note missing after note balise");
@@ -278,6 +329,16 @@ static int fillUpEntryFromARGV(CShildEntry* e,char* argv[],int argc){
             e->note = argv[i+1];
             i++;
         }else if(isOneOfThemEqual(argv[i],2,"--tags","-t")){
+            if(m == dlt){
+                print_WRN("The parameter '--tags' is useless for the methode dlt");
+                for(int j=i+1;j<argc;j++){
+                    if((argv[j])[0] == '-'){
+                        break;
+                    }
+                    i ++;
+                }
+                continue;
+            }
             if(paramTAGS == 1){
                 print_ERR("Parameter '%s' already use",argv[i]);
                 bt_deepFree(numOfTags, (void**)tags);
@@ -325,14 +386,53 @@ static int fillUpEntryFromARGV(CShildEntry* e,char* argv[],int argc){
         }
     }
 
-    if(paramAPP == 0 && paramID == 0){
-        print_ERR("App and ID parameter missing");
+    // Vérification selon le type de methode
+    if(m == crt){
+        if(paramAPP == 0 && paramID == 0){
+            print_ERR("App and ID parameter missing");
+            bt_deepFree(e->nbOfTags,e->tags);
+            return 1;
+        }else if(paramAPP == 0){
+            print_ERR("--app parameter missing");
+            bt_deepFree(e->nbOfTags,e->tags);
+            return 1;
+        }else if(paramID == 0){
+            print_ERR("ID parameter missing");
+            bt_deepFree(e->nbOfTags,e->tags);
+            return 1;
+        }
+    }if(m == dlt){
+        if(paramAPP == 0){
+            print_ERR("--app parameter missing");
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+int AES_GCM_Decrypt_returnCodeHandler(int code){
+    if(code == AES_ERR_PARAM){
+        print_ERR("One of the parameter of AES_GCM_Decrypt is a null pointer");
         return 1;
-    }else if(paramAPP == 0){
-        print_ERR("App parameter missing");
+    }else if(code == AES_ERR_VERSION){
+        print_WRN("The encrypting file version is not the same as AES version");
         return 1;
-    }else if(paramID == 0){
-        print_ERR("ID parameter missing");
+        // A changée pour compatiblitée plus tard
+    }else if(code == AES_ERR_MEMOIRE){
+        print_ERR("Error occured while allocating memory");
+        return 1;
+    }else if(code == AES_ERR_MDP){
+        print_ERR("Wrong password");
+        return 1;
+    }else if(code == AES_ERR_AUTH){
+        print_ERR("Vault altered while encrypted");
+        return 1;
+    }else if(code == AES_ERR_FORMAT){
+        print_ERR("The vault file is not valid encrypted data (too short or corrupted)");
+        return 1;
+    }else if(code != AES_OK){
+        print_ERR("An unknow error occured...");
         return 1;
     }
 
