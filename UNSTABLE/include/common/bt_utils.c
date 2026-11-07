@@ -310,6 +310,7 @@ int parseVaultName(char** dest, const char* src){
 
 int getCShildDir(char** pathDest){
     if(pathDest == NULL){
+        LOG_ERROR("Corrupted pointer (pathDest == NULL)");
         return 1;
     }
 
@@ -346,6 +347,7 @@ int getVersionCShild(){
 
     size_t versionIndex = getIndexFromObject(conf.value.object,"version");
     if(versionIndex == (size_t)-1){
+        LOG_ERROR("conf.json altered or corrupted, key 'version' not found");
         freeValue(conf);
         return -1;
     }
@@ -356,6 +358,7 @@ int getVersionCShild(){
 
 int getVaultPathFromName(char** destPath,const char* vaultName){
     if(destPath == NULL || vaultName == NULL){
+        LOG_ERROR("One of the pointer was null (destPath == NULL or vaultName == NULL)");
         return 1;
     }
 
@@ -435,6 +438,7 @@ int readVault(uint8_t** dest,size_t* size,const char* path){
 
 int writeVault(const uint8_t* src,const size_t size,const char* path){
     if(src == NULL || size == 0 || path == NULL){
+        LOG_ERROR("One of the pointer was null or size was zero (src == NULL or size == 0 or path == NULL)");
         return 1;
     }
     char* pathTmp = NULL;
@@ -494,6 +498,7 @@ int writeVault(const uint8_t* src,const size_t size,const char* path){
 
 int getVaultsPath(char** dest){
     if(dest == NULL){
+        LOG_ERROR("Corrupted pointer (dest == NULL)");
         return 1;
     }
     JsonValue conf;
@@ -586,6 +591,7 @@ void nukeString(char* str,size_t size){
     int bt_fgetss(char** dest){
         fflush(stdout);
         if(dest == NULL){
+            LOG_ERROR("The destination was null (dest == NULL)");
             return 1;
         }
         *dest = NULL;
@@ -593,7 +599,7 @@ void nukeString(char* str,size_t size){
         DWORD ancienMode;
 
         if (!GetConsoleMode(hIn, &ancienMode)) {
-            printf("Pas une vraie console (entree redirigee, Git Bash ?)\n");
+            LOG_ERROR("Not a real terminal (redirected input, Git Bash ?)");
             return 1;
         }
 
@@ -606,6 +612,7 @@ void nukeString(char* str,size_t size){
         char* tmp = calloc(len_mdp+1,sizeof(char));
         if(tmp == NULL){
             SetConsoleMode(hIn, ancienMode);
+            LOG_ERROR("Error while allocating memory (tmp = calloc(len_mdp+1,sizeof(char)))");
             return 1;
         }
         *dest = tmp;
@@ -619,6 +626,7 @@ void nukeString(char* str,size_t size){
                 nukeString(*dest, size + 1);
                 free(*dest);
                 *dest = NULL;
+                LOG_ERROR("Error while reading inputs");
                 
                 return 1;
             }
@@ -637,6 +645,7 @@ void nukeString(char* str,size_t size){
                 nukeString(*dest, size + 1);
                 free(*dest);
                 *dest = NULL;
+                LOG_ERROR("Input canceled by the user (Ctrl+C)");
                 return 1;
             } else if (32 <= uc && uc <= 126) {
                 len_mdp ++;
@@ -647,6 +656,7 @@ void nukeString(char* str,size_t size){
                     nukeString(*dest, size);
                     free(*dest);
                     *dest = NULL;
+                    LOG_ERROR("Error while allocating memory (tmp = realloc(*dest,size+1))");
                     return 1;
                 }
                 *dest = tmp;
@@ -671,6 +681,7 @@ void nukeString(char* str,size_t size){
 
     int bt_pwdGen(char** dest,size_t length,int uppercase,int lowercase,int digits,int symbols){
         if(dest == NULL){
+            LOG_ERROR("The destination was null (dest == NULL)");
             return 1;
         }
         if(uppercase == 0 && lowercase == 0 && digits == 0 && symbols == 0){
@@ -679,6 +690,7 @@ void nukeString(char* str,size_t size){
 
         char* tmp = realloc(*dest,(length+1) * sizeof(char));
         if(tmp == NULL){
+            LOG_ERROR("Error while allocating memory (tmp = realloc(*dest,(length+1) * sizeof(char)))");
             return 1;
         }
         *dest = tmp;
@@ -691,6 +703,7 @@ void nukeString(char* str,size_t size){
             state = bt_strcat(&alphabet,"ABCDEFGHIJKLMNOPQRSTUVWXYZ");
             if(state){
                 free(alphabet);
+                LOG_ERROR("Error while building the alphabet (bt_strcat)");
                 return 1;
             }
             len_alphabet += 26;
@@ -699,6 +712,7 @@ void nukeString(char* str,size_t size){
             state = bt_strcat(&alphabet,"abcdefghijklmnopqrstuvwxyz");
             if(state){
                 free(alphabet);
+                LOG_ERROR("Error while building the alphabet (bt_strcat)");
                 return 1;
             }
             len_alphabet += 26;
@@ -707,6 +721,7 @@ void nukeString(char* str,size_t size){
             state = bt_strcat(&alphabet,"0123456789");
             if(state){
                 free(alphabet);
+                LOG_ERROR("Error while building the alphabet (bt_strcat)");
                 return 1;
             }
             len_alphabet += 10;
@@ -715,6 +730,7 @@ void nukeString(char* str,size_t size){
             state = bt_strcat(&alphabet,"!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
             if(state){
                 free(alphabet);
+                LOG_ERROR("Error while building the alphabet (bt_strcat)");
                 return 1;
             }
             len_alphabet += 32;
@@ -745,11 +761,13 @@ void nukeString(char* str,size_t size){
     int bt_fgetss(char** dest){
         fflush(stdout);
         if(dest == NULL){
+            LOG_ERROR("The destination was null (dest == NULL)");
             return 1;
         }
         *dest = NULL;
         struct termios ancien, nouveau;
         if (tcgetattr(STDIN_FILENO, &ancien) != 0) {
+            LOG_ERROR("Not a real terminal (redirected input)");
             return 1;
         }
 
@@ -765,6 +783,7 @@ void nukeString(char* str,size_t size){
         char* tmp = calloc(len_mdp+1,sizeof(char));
         if(tmp == NULL){
             tcsetattr(STDIN_FILENO, TCSAFLUSH, &ancien);
+            LOG_ERROR("Error while allocating memory (tmp = calloc(len_mdp+1,sizeof(char)))");
             return 1;
         }
         *dest = tmp;
@@ -777,6 +796,7 @@ void nukeString(char* str,size_t size){
                 nukeString(*dest, size + 1);
                 free(*dest);
                 *dest = NULL;
+                LOG_ERROR("Error while reading inputs");
                 
                 return 1;
             }
@@ -795,6 +815,7 @@ void nukeString(char* str,size_t size){
                 nukeString(*dest, size + 1);
                 free(*dest);
                 *dest = NULL;
+                LOG_ERROR("Input canceled by the user (Ctrl+C)");
                 return 1;
             } else if (32 <= uc && uc <= 126) {
                 len_mdp ++;
@@ -805,6 +826,7 @@ void nukeString(char* str,size_t size){
                     nukeString(*dest, size);
                     free(*dest);
                     *dest = NULL;
+                    LOG_ERROR("Error while allocating memory (tmp = realloc(*dest,size+1))");
                     return 1;
                 }
                 *dest = tmp;
@@ -830,6 +852,7 @@ void nukeString(char* str,size_t size){
 
     int bt_pwdGen(char** dest,size_t length,int uppercase,int lowercase,int digits,int symbols){
         if(dest == NULL){
+            LOG_ERROR("The destination was null (dest == NULL)");
             return 1;
         }
         if(uppercase == 0 && lowercase == 0 && digits == 0 && symbols == 0){
@@ -838,6 +861,7 @@ void nukeString(char* str,size_t size){
 
         char* tmp = realloc(*dest,(length+1) * sizeof(char));
         if(tmp == NULL){
+            LOG_ERROR("Error while allocating memory (tmp = realloc(*dest,(length+1) * sizeof(char)))");
             return 1;
         }
         *dest = tmp;
@@ -850,6 +874,7 @@ void nukeString(char* str,size_t size){
             state = bt_strcat(&alphabet,"ABCDEFGHIJKLMNOPQRSTUVWXYZ");
             if(state){
                 free(alphabet);
+                LOG_ERROR("Error while building the alphabet (bt_strcat)");
                 return 1;
             }
             len_alphabet += 26;
@@ -858,6 +883,7 @@ void nukeString(char* str,size_t size){
             state = bt_strcat(&alphabet,"abcdefghijklmnopqrstuvwxyz");
             if(state){
                 free(alphabet);
+                LOG_ERROR("Error while building the alphabet (bt_strcat)");
                 return 1;
             }
             len_alphabet += 26;
@@ -866,6 +892,7 @@ void nukeString(char* str,size_t size){
             state = bt_strcat(&alphabet,"0123456789");
             if(state){
                 free(alphabet);
+                LOG_ERROR("Error while building the alphabet (bt_strcat)");
                 return 1;
             }
             len_alphabet += 10;
@@ -874,6 +901,7 @@ void nukeString(char* str,size_t size){
             state = bt_strcat(&alphabet,"!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
             if(state){
                 free(alphabet);
+                LOG_ERROR("Error while building the alphabet (bt_strcat)");
                 return 1;
             }
             len_alphabet += 32;

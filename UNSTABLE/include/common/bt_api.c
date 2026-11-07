@@ -138,7 +138,7 @@ int removeEntry(JsonValue *vaultRoot,CShildEntry entry,int* numberOfEntryRemoved
         LOG_ERROR("App name null");
         return 1;
     }
-    numberOfEntryRemoved = 0;
+    *numberOfEntryRemoved = 0;
     int state = 0;
     size_t indexor = 0;
     int versionCShild = getVersionCShild();

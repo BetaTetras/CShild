@@ -8,6 +8,14 @@
 #include "../../include/common/bt_printf.h"
 #include "../../include/common/bt_api.h"
 
+// Chemin réel de error.log (voir bt_log.c) : %APPDATA% sous Windows, $HOME sous Linux.
+// Ce texte passe dans print_ERR (format printf) : le % de %APPDATA% doit être doublé.
+#ifdef _WIN32
+    #define ERR_SYSTEM_MSG "Error system, reason is inside '%%APPDATA%%\\CShild\\UNSTABLE\\log\\error.log'"
+#else
+    #define ERR_SYSTEM_MSG "Error system, reason is inside '~/CShild/UNSTABLE/log/error.log'"
+#endif
+
 typedef enum {
     crt,
     dlt,
@@ -19,6 +27,8 @@ typedef enum {
 
 static int fillUpEntryFromARGV(CShildEntry* e,char* argv[],int argc,methode m);
 int AES_GCM_Decrypt_returnCodeHandler(int code);
+int AES_GCM_Encrypt_returnCodeHandler(int code);
+
 
 int main(int argc, char *argv[]) {
     int state = 0;
@@ -56,6 +66,10 @@ int main(int argc, char *argv[]) {
             return 1;
         }
         state = vaultAreadyCreated(argv[2]);
+        if(state == -1){
+            print_ERR(ERR_SYSTEM_MSG);
+            return 1;
+        }
         if(state != 1){
             print_ERR("vault name '%s' not found",argv[2]);
             return 1;
@@ -74,13 +88,16 @@ int main(int argc, char *argv[]) {
         // Entrée du mot de passe
         printf("Enter the password of the vault : ");
         state = bt_fgetss(&vaultPWD);
-        if(state != 0){
-            print_ERR("Error while getting the entred password");
+        if(state == 1){
+            print_ERR(ERR_SYSTEM_MSG);
+            return 1;
+        }else if(state != 0){
+            print_WRN("The entered password is empty");
             return 1;
         }
         state = getVaultPathFromName(&vaultPath,argv[2]);
         if(state == 1){
-            print_ERR("Error while getting the path of the vault '%s'",argv[2]);
+            print_ERR(ERR_SYSTEM_MSG);
             return 1;
         }
         
@@ -90,7 +107,7 @@ int main(int argc, char *argv[]) {
         size_t size_decryptedVault;
         state = readVault(&b_encryptedVault,&size_encryptedVault,vaultPath);
         if(state == 1){
-            print_ERR("Error while reading the vault '%s'",argv[2]);
+            print_ERR(ERR_SYSTEM_MSG);
             return 1;
         }else if(state == 2){
             print_ERR("Vault size >= 64 MO");
@@ -106,7 +123,7 @@ int main(int argc, char *argv[]) {
 
         state = addEntry(&vaultRoot,e);
         if(state == 1){
-            print_ERR("Something went wrong during opperation of creation");
+            print_ERR(ERR_SYSTEM_MSG);
             return 1;
         }else if(state == 2){
             print_ERR("Password empty");
@@ -129,30 +146,17 @@ int main(int argc, char *argv[]) {
         free(b_encryptedVault);
         b_encryptedVault = NULL;
         state = AES_GCM_Encrypt(&b_encryptedVault,&size_encryptedVault,b_decryptedVault,size_decryptedVault,vaultPWD);
-        if(state == AES_ERR_PARAM){
-            print_ERR("One of the parameter of AES_GCM_Encrypt is a null pointer");
-            return 1;
-        }else if(state == AES_ERR_TAILLE){
-            print_ERR("The size of the vault exed 64 GO");
-            return 1;
-        }else if(state == AES_ERR_ALEA){
-            print_ERR("An error whith random occured (urandom or BCryptGenRandom)");
-            return 1;
-        }else if(state == AES_ERR_MEMOIRE){
-            print_ERR("Error occured while allocating memory");
-            return 1;
-        }else if(state != AES_OK){
-            print_ERR("An unknow error occured...");
+        if(AES_GCM_Encrypt_returnCodeHandler(state)){
             return 1;
         }
 
         state = writeVault(b_encryptedVault,size_encryptedVault,vaultPath);
         if(state == 1){
-            print_ERR("An error occured while writing the encrypted data in a file");
+            print_ERR(ERR_SYSTEM_MSG);
             return 1;
         }
 
-        print_SUC("New entry successfully push");
+        print_SUC("New entry successfully save");
 
         uint8_tToZero(b_encryptedVault,size_encryptedVault);
         uint8_tToZero(b_decryptedVault,size_decryptedVault);
@@ -165,7 +169,6 @@ int main(int argc, char *argv[]) {
         freeValue(vaultRoot);
         bt_deepFree(e.nbOfTags,(void**)e.tags);
 
-
         break;
     }
     case dlt:{
@@ -174,6 +177,10 @@ int main(int argc, char *argv[]) {
             return 1;
         }
         state = vaultAreadyCreated(argv[2]);
+        if(state == -1){
+            print_ERR(ERR_SYSTEM_MSG);
+            return 1;
+        }
         if(state != 1){
             print_ERR("vault name '%s' not found",argv[2]);
             return 1;
@@ -186,7 +193,7 @@ int main(int argc, char *argv[]) {
             return 1;
         }
         if(e.id == NULL){
-            print_WRN("ID not provided, will proceed to remove ALL entries from '%s'","testApp");
+            print_WRN("ID not provided, will proceed to remove ALL entries from '%s'",e.app);
             printf("Continue ? : ");printf("[");char_RGB(0,255,0,'Y');printf("/");char_RGB(255,0,0,'n');printf("] : ");
             state = getValidation();
 
@@ -194,7 +201,7 @@ int main(int argc, char *argv[]) {
                 print_INF("Action canceled");
                 bt_deepFree(e.nbOfTags,(void**)e.tags);
                 return 1;
-            }else if(state == 3){
+            }else if(state == 2){
                 print_ERR("Not a valid respond, Action canceled (Must respond with 'Y' or 'N')");
                 bt_deepFree(e.nbOfTags,(void**)e.tags);
                 return 1;
@@ -206,13 +213,16 @@ int main(int argc, char *argv[]) {
 
         printf("Enter the password of the vault : ");
         state = bt_fgetss(&vaultPWD);
-        if(state != 0){
-            print_ERR("Error while getting the entred password");
+        if(state == 1){
+            print_ERR(ERR_SYSTEM_MSG);
+            return 1;
+        }else if(state != 0){
+            print_WRN("The entered password is empty");
             return 1;
         }
         state = getVaultPathFromName(&vaultPath,argv[2]);
         if(state == 1){
-            print_ERR("Error while getting the path of the vault '%s'",argv[2]);
+            print_ERR(ERR_SYSTEM_MSG);
             return 1;
         }
 
@@ -220,8 +230,9 @@ int main(int argc, char *argv[]) {
         uint8_t* b_decryptedVault = NULL;
         size_t size_encryptedVault;
         size_t size_decryptedVault;
+        state = readVault(&b_encryptedVault,&size_encryptedVault,vaultPath);
         if(state == 1){
-            print_ERR("Error while reading the vault '%s'",argv[2]);
+            print_ERR(ERR_SYSTEM_MSG);
             return 1;
         }else if(state == 2){
             print_ERR("Vault size >= 64 MO");
@@ -234,6 +245,54 @@ int main(int argc, char *argv[]) {
         }
 
         JsonValue vaultRoot = initCson((char*)b_decryptedVault);
+
+        int numberOfRemovedEntry;
+        state = removeEntry(&vaultRoot,e,&numberOfRemovedEntry);
+        if(state == 1){
+            print_ERR(ERR_SYSTEM_MSG);
+            return 1;
+        }else if(state == 2){
+            print_WRN("No application named '%s' inside '%s'",e.app,argv[2]);
+            return 1;
+        }else if(state == 3){
+            print_WRN("No ID '%s' in the application '%s' inside '%s'",e.id,e.app,argv[2]);
+            return 1;
+        }
+        
+        char* jsonTmp = NULL;
+        if(sprintfValue(&jsonTmp,vaultRoot)){
+            print_ERR("An error occured while transforming an JsonValue in a string");
+            return 1;
+        }
+        uint8_tToZero(b_decryptedVault,size_decryptedVault + 1);
+        free(b_decryptedVault);
+        b_decryptedVault = (uint8_t*)jsonTmp;
+        size_decryptedVault = bt_strlen(jsonTmp);
+
+        free(b_encryptedVault);
+        b_encryptedVault = NULL;
+        state = AES_GCM_Encrypt(&b_encryptedVault,&size_encryptedVault,b_decryptedVault,size_decryptedVault,vaultPWD);
+        if(AES_GCM_Encrypt_returnCodeHandler(state)){
+            return 1;
+        }
+
+        state = writeVault(b_encryptedVault,size_encryptedVault,vaultPath);
+        if(state == 1){
+            print_ERR(ERR_SYSTEM_MSG);
+            return 1;
+        }
+
+        print_SUC("%d entry successfully removed",numberOfRemovedEntry);
+
+        uint8_tToZero(b_encryptedVault,size_encryptedVault);
+        uint8_tToZero(b_decryptedVault,size_decryptedVault);
+        nukeString(vaultPWD,bt_strlen(vaultPWD));
+
+        free(b_encryptedVault);
+        free(b_decryptedVault);
+        free(vaultPWD);
+        free(vaultPath);
+        freeValue(vaultRoot);
 
         break;
     }
@@ -390,15 +449,15 @@ static int fillUpEntryFromARGV(CShildEntry* e,char* argv[],int argc,methode m){
     if(m == crt){
         if(paramAPP == 0 && paramID == 0){
             print_ERR("App and ID parameter missing");
-            bt_deepFree(e->nbOfTags,e->tags);
+            bt_deepFree(e->nbOfTags,(void**)tags);
             return 1;
         }else if(paramAPP == 0){
             print_ERR("--app parameter missing");
-            bt_deepFree(e->nbOfTags,e->tags);
+            bt_deepFree(e->nbOfTags,(void**)tags);
             return 1;
         }else if(paramID == 0){
             print_ERR("ID parameter missing");
-            bt_deepFree(e->nbOfTags,e->tags);
+            bt_deepFree(e->nbOfTags,(void**)tags);
             return 1;
         }
     }if(m == dlt){
@@ -430,6 +489,27 @@ int AES_GCM_Decrypt_returnCodeHandler(int code){
         return 1;
     }else if(code == AES_ERR_FORMAT){
         print_ERR("The vault file is not valid encrypted data (too short or corrupted)");
+        return 1;
+    }else if(code != AES_OK){
+        print_ERR("An unknow error occured...");
+        return 1;
+    }
+
+    return 0;
+}
+
+int AES_GCM_Encrypt_returnCodeHandler(int code){
+    if(code == AES_ERR_PARAM){
+        print_ERR("One of the parameter of AES_GCM_Encrypt is a null pointer");
+        return 1;
+    }else if(code == AES_ERR_TAILLE){
+        print_ERR("The size of the vault exed 64 GO");
+        return 1;
+    }else if(code == AES_ERR_ALEA){
+        print_ERR("An error whith random occured (urandom or BCryptGenRandom)");
+        return 1;
+    }else if(code == AES_ERR_MEMOIRE){
+        print_ERR("Error occured while allocating memory");
         return 1;
     }else if(code != AES_OK){
         print_ERR("An unknow error occured...");

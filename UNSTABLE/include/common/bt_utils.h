@@ -34,6 +34,7 @@ int getCShildDir(char** pathDest);
 int getVersionCShild();
 int getVaultsPath(char** dest);
 int getVaultPathFromName(char** destPath,const char* vaultName);
+int getValidation(void);
 int readVault(uint8_t** dest,size_t* size,const char* path);
 int writeVault(const uint8_t* src,const size_t size,const char* path);
 void bt_multiFree(size_t numberToFree,...);
