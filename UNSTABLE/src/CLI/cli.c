@@ -24,7 +24,8 @@ typedef enum {
     mdf,
     shw,
     gen,
-    oth
+    mng,
+    inf
 } methode;
 
 static int fillUpEntryFromARGV(CShildEntry* e,char* argv[],int argc,methode m);
@@ -54,7 +55,9 @@ int main(int argc, char *argv[]) {
     }else if(isOneOfThemEqual(argv[1],3,"--info","-i","-I") ||
              isOneOfThemEqual(argv[1],3,"--help","-h","-H") ||
              isOneOfThemEqual(argv[1],3,"--version","-v","-V")){
-        m = oth;
+        m = inf;
+    }else if(isOneOfThemEqual(argv[1],3,"init","vaults","password")){
+        m = mng;
     }else{
         print_WRN("Methode '%s' non-existant...",argv[1]);
         printf("\n");
@@ -738,7 +741,111 @@ int main(int argc, char *argv[]) {
         print_INF("methode gen not implemented");
         break;
     }
-    case oth:{
+    case mng:{
+        if(bt_strcmp(argv[1],"init") == 0){
+            if(argc > 3 ){
+                print_WRN("Too many parameters (%d)",argc);
+                return 1;
+            }else if(argc < 3){
+                print_WRN("Not enough parameters (%d)",argc);
+                return 1;
+            }
+
+            // Le chemin est récupéré AVANT la création : s'il échoue, aucun fichier n'est créé
+            char* pathNewVault = NULL;
+            state = getVaultPathFromName(&pathNewVault,argv[2]);
+            if(state == 1){
+                print_ERR(ERR_SYSTEM_MSG);
+                return 1;
+            }
+
+            state = initNewBlankVault(argv[2]);
+            if(state == 1){
+                print_ERR(ERR_SYSTEM_MSG);
+                free(pathNewVault);
+                return 1;
+            }else if(state == 2){
+                print_WRN("Invalid name: empty, start with '.' or contain path char / forbidden under Windows");
+                free(pathNewVault);
+                return 1;
+            }else if(state == 3){
+                print_WRN("Vault '%s' already exists",argv[2]);
+                free(pathNewVault);
+                return 1;
+            }
+
+            char* vaultPWD = NULL;
+            char* buffer = NULL;
+            print_INF("Remember or write down your master key, if you lost it NO RECOVERY POSSIBLE");
+            printf("Enter the password of the vault : ");
+            state = bt_fgetss(&vaultPWD);
+            if(state == 1){
+                print_ERR(ERR_SYSTEM_MSG);
+                remove(pathNewVault);
+                free(pathNewVault);
+                return 1;
+            }else if(state != 0){
+                print_WRN("The entered password is empty");
+                remove(pathNewVault);
+                free(pathNewVault);
+                return 1;
+            }
+            printf("Enter the password of the vault again : ");
+            state = bt_fgetss(&buffer);
+            if(state == 1){
+                print_ERR(ERR_SYSTEM_MSG);
+                remove(pathNewVault);
+                nukeString(vaultPWD,bt_strlen(vaultPWD));
+                free(vaultPWD);
+                free(pathNewVault);
+                return 1;
+            }else if(state != 0){
+                print_WRN("The entered password is empty");
+                remove(pathNewVault);
+                nukeString(vaultPWD,bt_strlen(vaultPWD));
+                free(vaultPWD);
+                free(pathNewVault);
+                return 1;
+            }
+
+            if(bt_strcmp(vaultPWD,buffer) != 0){
+                print_WRN("The two password are not the same");
+                remove(pathNewVault);
+                nukeString(vaultPWD,bt_strlen(vaultPWD));
+                nukeString(buffer,bt_strlen(buffer));
+                free(vaultPWD);
+                free(buffer);
+                free(pathNewVault);
+                return 1;
+            }
+            nukeString(buffer,bt_strlen(buffer));
+            free(buffer);
+
+            state = AES_GCM_Encrypt_File(pathNewVault,vaultPWD);
+            if(AES_GCM_Encrypt_returnCodeHandler(state)){
+                remove(pathNewVault);
+                nukeString(vaultPWD,bt_strlen(vaultPWD));
+                free(vaultPWD);
+                free(pathNewVault);
+                return 1;
+            }
+
+            print_SUC("New vault '%s' successfully created",argv[2]);
+
+            nukeString(vaultPWD,bt_strlen(vaultPWD));
+            free(vaultPWD);
+            free(pathNewVault);
+
+        }else if(bt_strcmp(argv[1],"vaults") == 0){
+
+        }else if(bt_strcmp(argv[1],"password") == 0){
+
+        }else{
+
+        }
+        break;
+    }
+    case inf:{
         if(isOneOfThemEqual(argv[1],3,"--info","-i","-I")){
             int state;
             // On récupére le path de la conf

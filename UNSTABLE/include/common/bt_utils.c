@@ -61,6 +61,19 @@ int bt_strcmp(const char* str1,const char* str2){
     return 0;
 }
 
+int bt_strpbrk(const char* str,const char* list){
+    size_t len_str = bt_strlen(str);
+    size_t len_list = bt_strlen(list);
+    for(size_t i = 0;i<len_str;i++){
+        for(size_t j=0;j<len_list;j++){
+            if(str[i] == list[j]){
+                return i;
+            }
+        }
+    }
+    return -1;
+}
+
 // chr = cherche
 int bt_strchr(char* str,char c){
     size_t len_str = bt_strlen(str);
@@ -666,6 +679,97 @@ void nukeString(char* str,size_t size){
     for(size_t i=0;i<size;i++){
         p[i] = 0x00;
     }
+}
+
+int initNewBlankVault(char* nomVault){
+    if(nomVault == NULL){
+        LOG_ERROR("Corrupted pointer (nomVault == NULL)");
+        return 1;
+    }
+    // Nom invalide : vide, commence par '.', ou contient un caractère de chemin / interdit sous Windows
+    if(nomVault[0] == '\0' || nomVault[0] == '.' || bt_strpbrk(nomVault,"/\\:*?\"<>|") != -1){
+        return 2;
+    }
+    if(vaultAreadyCreated(nomVault) == 1){
+        return 3;
+    }
+    int state;
+    double version_d = getVersionCShild();
+    if(version_d == -1){
+        LOG_ERROR("Impossible to fetch the version of CShild (getVersionCShild)");
+        return 1;
+    }
+    JsonValue newVault = initJsonValue(JSON_OBJECT);
+    state = newJsonObject(&newVault);
+    if(state == 1){
+        LOG_ERROR("Something append while creating a new Json object (newJsonObject(&newVault))");
+        return 1;
+    }
+    JsonValue version_v = initJsonValue(JSON_DECIMAL);
+    version_v.value.decimal = version_d;
+    JsonValue apps_obj = initJsonValue(JSON_OBJECT);
+    state = newJsonObject(&apps_obj);
+    if(state == 1){
+        LOG_ERROR("Something append while creating a new Json object (newJsonObject(&apps_obj))");
+        freeValue(newVault);
+        return 1;
+    }
+
+    state = addToObject(newVault.value.object,"version",version_v,0);
+    if(state == 1){
+        LOG_ERROR("Adding a new value in an object failed (addToObject)");
+        freeValue(apps_obj);
+        freeValue(newVault);
+        return 1;
+    }
+    state = addToObject(newVault.value.object,"apps",apps_obj,1);
+    freeValue(apps_obj);    // addToObject en a fait une copie : l'original est à libérer
+    if(state == 1){
+        LOG_ERROR("Adding a new value in an object failed (addToObject)");
+        freeValue(newVault);
+        return 1;
+    }
+
+    char* fullPath = NULL;
+    state = getVaultPathFromName(&fullPath,nomVault);
+    if(state == 1){
+        LOG_ERROR("Error while getting the vault path (getVaultPathFromName)");
+        freeValue(newVault);
+        return 1;
+    }
+
+    // "wx" : échoue si le fichier existe déjà (même s'il a été créé entre-temps), il n'est donc jamais écrasé
+    FILE* json = fopen(fullPath,"wx");
+    if(json == NULL){
+        int alreadyExists = (errno == EEXIST);
+        if(!alreadyExists){
+            LOG_ERROR(strerror(errno));
+        }
+        free(fullPath);
+        freeValue(newVault);
+        if(alreadyExists){
+            return 3;
+        }
+        return 1;
+    }
+
+    state = fprintfValue(json,newVault);
+    freeValue(newVault);
+    if(state == 1){
+        LOG_ERROR("Error while writting the json file");
+        fclose(json);
+        remove(fullPath);       // On l'a créé nous-même juste avant : on peut le supprimer
+        free(fullPath);
+        return 1;
+    }
+    if(fclose(json) != 0){
+        LOG_ERROR("Error while closing the json file");
+        remove(fullPath);
+        free(fullPath);
+        return 1;
+    }
+    free(fullPath);
+    return 0;
 }
 
 #ifdef _WIN32
