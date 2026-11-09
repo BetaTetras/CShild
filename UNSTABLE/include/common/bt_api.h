@@ -67,8 +67,8 @@ int modPassword(JsonObject *data, char* newPassword);
 // *dest reçoit une nouvelle chaîne (21 octets), à libérer avec free.
 int getTime(char** dest);
 
-// Version enregistrée dans le vault (clé "version"), ou -1 si elle est introuvable.
-int getVersionVault(JsonValue vaultRoot);
+// Version enregistrée dans le vault (clé "version", un décimal comme 0.1), ou -1 si elle est introuvable.
+double getVersionVault(JsonValue vaultRoot);
 
 // Remplit objDest avec une entrée vide : password, note, tags, password_history, created_at et updated_at.
 int generateNewBlankEntry(JsonObject* objDest);

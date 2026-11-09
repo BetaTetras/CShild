@@ -1,12 +1,14 @@
 {
-  "version": 1,
-  "vaults_dir_path": "C:\\Users\\grego\\Documents\\dev\\C\\Cshild\\UNSTABLE\\vaults",
+  "version": 0.1,
+  "vaults_dir_path": "C:/Users/grego/Documents/dev/C/Cshild/UNSTABLE/vaults",
+  "log_action" : false,
+  "log_action_path" : "C:/Users/grego/Documents/dev/C/Cshild/UNSTABLE/log/action.log",
   "pbkdf2_iterations": 600000,
   "generator": {
     "length": 20,
-    "uppercase": true,
+    "uppercase": false,
     "lowercase": true,
     "digits": true,
-    "symbols": true
+    "symbols": false
   }
 }

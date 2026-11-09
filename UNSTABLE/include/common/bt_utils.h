@@ -32,13 +32,16 @@ int bt_strcat(char** str1,const char* str2);
 
 int isOneOfThemEqual(const char* str, size_t nbrOfElement, ...);  // 1 si str vaut l'une des chaînes suivantes
 int vaultAreadyCreated(const char* selectedName);
+int getConfPath(char** dest);
 int getConf(JsonValue* destConf);
 int parseVaultName(char** dest,const char* src);
 int getCShildDir(char** pathDest);
-int getVersionCShild();
+double getVersionCShild();
 int getVaultsPath(char** dest);
+int getErrorLogPath(char** dest);
 int getVaultPathFromName(char** destPath,const char* vaultName);
 int getValidation(void);
+int isFileOpenable(char* path);
 int readVault(uint8_t** dest,size_t* size,const char* path);
 int writeVault(const uint8_t* src,const size_t size,const char* path);
 void bt_multiFree(size_t numberToFree,...);

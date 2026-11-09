@@ -25,7 +25,7 @@
 #endif
 
 // Prépare la console au tout premier affichage : UTF-8 et codes couleur ANSI. Sans effet hors Windows.
-static void initConsole(void){
+void initConsole(void){
     static int done = 0;
     if(done){
         return;

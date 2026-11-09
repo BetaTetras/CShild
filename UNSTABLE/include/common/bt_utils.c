@@ -23,6 +23,7 @@
 // 64 MO =  67 108 864 O
 #define VAULT_MAX_SIZE (64L * 1024 * 1024)
 
+// len = lenght
 size_t bt_strlen(const char* str){
     if(str == NULL){
         return 0;
@@ -34,7 +35,7 @@ size_t bt_strlen(const char* str){
     return i;
 }
 
-
+// cmp = compare
 int bt_strcmp(const char* str1,const char* str2){
     if(str1 == NULL && str2 == NULL){
         return 0;
@@ -60,6 +61,7 @@ int bt_strcmp(const char* str1,const char* str2){
     return 0;
 }
 
+// chr = cherche
 int bt_strchr(char* str,char c){
     size_t len_str = bt_strlen(str);
     for(size_t i=0;i<len_str;i++){
@@ -70,6 +72,7 @@ int bt_strchr(char* str,char c){
     return -1;
 }
 
+// chrxt = cherche x time
 int bt_strchrxt(const char* str,char c,int x){
     size_t len_str = bt_strlen(str);
     int y = 0;
@@ -85,7 +88,7 @@ int bt_strchrxt(const char* str,char c,int x){
     return -1;
 }
 
-// String copy between x and y
+// cpybxy = copy between x and y
 int bt_strcpybxy(char **dest, const char *src, size_t x, size_t y){
     if(src == NULL){
         return 1;
@@ -118,6 +121,7 @@ int bt_strcpybxy(char **dest, const char *src, size_t x, size_t y){
     return 0;
 }
 
+// cpy = copy
 int bt_strcpy(char** dest,const char* src){
     if(src == NULL){
         return 1;
@@ -143,6 +147,7 @@ int bt_strcpy(char** dest,const char* src){
     return 0;
 }
 
+// cat = concaténation
 int bt_strcat(char** str1,const char* str2){
     if(str1 == NULL || str2 == NULL){
         return 1;
@@ -165,6 +170,21 @@ int bt_strcat(char** str1,const char* str2){
     return 0;
 }
 
+// rc = replace char
+int bt_strrc(char* str,char target,char replacementChar){
+    if(str == NULL){
+        return 1;
+    }
+    size_t str_len = bt_strlen(str);
+
+    for(size_t i=0;i<str_len;i++){
+        if(str[i] == target){
+            str[i] = replacementChar;
+        }
+    }
+    return 0;
+}
+
 int isOneOfThemEqual(const char* str,size_t nbrOfElement,...){
     va_list liste;
     va_start(liste, nbrOfElement);
@@ -179,7 +199,12 @@ int isOneOfThemEqual(const char* str,size_t nbrOfElement,...){
     return res; 
 }
 
-int getConf(JsonValue* destConf){
+int getConfPath(char** dest){
+    if(dest == NULL){
+        LOG_ERROR("Corrupted pointer (dest == NULL)");
+        return 1;
+    }
+
     int state;
     char* projectRoot = NULL;
     char* confPath = calloc(512, sizeof(char));
@@ -196,6 +221,45 @@ int getConf(JsonValue* destConf){
 
     snprintf(confPath,512,"%s/.config/conf.json",projectRoot);
     free(projectRoot);
+    *dest = confPath;
+    return 0;
+}
+
+int getErrorLogPath(char** dest){
+    if(dest == NULL){
+        LOG_ERROR("Corrupted pointer (dest == NULL)");
+        return 1;
+    }
+
+    int state;
+    char* projectRoot = NULL;
+    char* confPath = calloc(512, sizeof(char));
+    if(confPath == NULL){
+        LOG_ERROR("Error while allocating memory (confPath calloc)");
+        return 1;
+    }
+    state = getCShildDir(&projectRoot);
+    if(state){
+        free(confPath);
+        LOG_ERROR("Impossible to fetch the CShild directory (getCShildDir)");
+        return 1;
+    }
+
+    snprintf(confPath,512,"%s/UNSTABLE/log/error.log",projectRoot);
+    free(projectRoot);
+    *dest = confPath;
+    return 0;
+}
+
+int getConf(JsonValue* destConf){
+    int state;
+    char* confPath = NULL;
+
+    state = getConfPath(&confPath);
+    if(state == 1){
+        return 1;
+    }
+
     *destConf = initCsonFromFile(confPath);
     free(confPath);
     if(destConf->type == JSON_ERROR){
@@ -204,6 +268,19 @@ int getConf(JsonValue* destConf){
     }
 
     return 0;
+}
+
+int isFileOpenable(char* path){
+    if(path == NULL){
+        return 0;
+    }
+
+    FILE* f = fopen(path,"r");
+    if(f == NULL){
+        return 0;
+    }
+    fclose(f);
+    return 1;
 }
 
 int vaultAreadyCreated(const char* selectedName){
@@ -336,10 +413,14 @@ int getCShildDir(char** pathDest){
 
     free(*pathDest);
     *pathDest = tmp;
+    if(bt_strrc(*pathDest,'\\','/')){
+        LOG_ERROR("Error while standardizing path (bt_strrc(*pathDest,'\\','/'))");
+        return 1;
+    }
     return 0;
 }
 
-int getVersionCShild(){
+double getVersionCShild(){
     JsonValue conf;
     if(getConf(&conf)){
         return -1;
@@ -351,7 +432,7 @@ int getVersionCShild(){
         freeValue(conf);
         return -1;
     }
-    int version = conf.value.object->listeOfPair[versionIndex].value.value.integer;
+    double version = conf.value.object->listeOfPair[versionIndex].value.value.decimal;
     freeValue(conf);
     return version;
 }

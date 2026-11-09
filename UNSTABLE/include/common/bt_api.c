@@ -23,12 +23,12 @@ int addEntry(JsonValue *vaultRoot,CShildEntry entry){
     int state = 0;
     size_t indexor = 0;
     // Vérification des version 
-    int versionCShild = getVersionCShild();
+    double versionCShild = getVersionCShild();
     if(versionCShild == -1){
         LOG_ERROR("Impossible to fetch the version of CShild");
         return 1;
     }
-    int versionVault = getVersionVault(*vaultRoot);
+    double versionVault = getVersionVault(*vaultRoot);
     if(versionVault == -1){
         LOG_ERROR("Impossible to fetch the version of the vault");
         return 1;
@@ -141,12 +141,12 @@ int removeEntry(JsonValue *vaultRoot,CShildEntry entry,int* numberOfEntryRemoved
     *numberOfEntryRemoved = 0;
     int state = 0;
     size_t indexor = 0;
-    int versionCShild = getVersionCShild();
+    double versionCShild = getVersionCShild();
     if(versionCShild == -1){
         LOG_ERROR("Impossible to fetch the version of CShild");
         return 1;
     }
-    int versionVault = getVersionVault(*vaultRoot);
+    double versionVault = getVersionVault(*vaultRoot);
     if(versionVault == -1){
         LOG_ERROR("Impossible to fetch the version of the vault");
         return 1;
@@ -233,12 +233,12 @@ int modEntry(JsonValue *vaultRoot,CShildEntry entry,size_t* indexBadTag){
 
     int state = 0;
     size_t indexor = 0;
-    int versionCShild = getVersionCShild();
+    double versionCShild = getVersionCShild();
     if(versionCShild == -1){
         LOG_ERROR("Impossible to fetch the version of CShild");
         return 1;
     }
-    int versionVault = getVersionVault(*vaultRoot);
+    double versionVault = getVersionVault(*vaultRoot);
     if(versionVault == -1){
         LOG_ERROR("Impossible to fetch the version of the vault");
         return 1;
@@ -536,13 +536,13 @@ size_t getTagIndex(JsonArray* ary,char* tag){
 }
 
 
-int getVersionVault(JsonValue vaultRoot){
+double getVersionVault(JsonValue vaultRoot){
     size_t indexVersion = getIndexFromObjectWithKey(vaultRoot.value.object,"version");
     if(indexVersion == (size_t) -1){
         LOG_ERROR("JSON of the vault altered - key 'version' not found");
         return -1;
     }
-    return vaultRoot.value.object->listeOfPair[indexVersion].value.value.integer;
+    return vaultRoot.value.object->listeOfPair[indexVersion].value.value.decimal;
 }
 
 static char* emptyString(void);

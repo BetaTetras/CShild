@@ -15,7 +15,7 @@
 #else
     #define BT_PRINTF_CHECK(fmt,args)
 #endif
-
+void initConsole(void);
 void printf_RGB(int r, int g, int b, const char* format, ...) BT_PRINTF_CHECK(4,5);                                // texte en couleur r,g,b (0..255)
 void printf_RGB_BG(int fr, int fg, int fb, int br, int bg, int bb, const char* format, ...) BT_PRINTF_CHECK(7,8);  // texte f* sur fond b*
 void char_RGB(int r, int g, int b, char c);
