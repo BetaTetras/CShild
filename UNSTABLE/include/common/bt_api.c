@@ -37,14 +37,14 @@ int addEntry(JsonValue *vaultRoot,CShildEntry entry){
         return 1;
     }
 
-    indexor = getIndexFromObject(vaultRoot->value.object,"apps");
+    indexor = getIndexFromObjectWithKey(vaultRoot->value.object,"apps");
     if(indexor == (size_t)-1){
         LOG_ERROR("JSON of the vault altered - key 'apps' not found");
         return 1;
     }
     // L'application existe t'il ?
     JsonValue *apps_p = &vaultRoot->value.object->listeOfPair[indexor].value;
-    size_t indexApp = getIndexFromObject(vaultRoot->value.object->listeOfPair[indexor].value.value.object,entry.app);
+    size_t indexApp = getIndexFromObjectWithKey(vaultRoot->value.object->listeOfPair[indexor].value.value.object,entry.app);
     if(indexApp == (size_t)-1){
         // L'app n'existe pas
         JsonValue newApp = initJsonValue(JSON_OBJECT);
@@ -92,7 +92,7 @@ int addEntry(JsonValue *vaultRoot,CShildEntry entry){
         freeValue(newID);
     }else{
         JsonValue *IDs_p = &apps_p->value.object->listeOfPair[indexApp].value;
-        size_t indexID = getIndexFromObject(IDs_p->value.object,entry.id);
+        size_t indexID = getIndexFromObjectWithKey(IDs_p->value.object,entry.id);
         if(indexID == (size_t)-1){
             // L'ID n'existe pas
             JsonValue newID = initJsonValue(JSON_OBJECT);
@@ -155,7 +155,7 @@ int removeEntry(JsonValue *vaultRoot,CShildEntry entry,int* numberOfEntryRemoved
         return 1;
     }
 
-    indexor = getIndexFromObject(vaultRoot->value.object,"apps");
+    indexor = getIndexFromObjectWithKey(vaultRoot->value.object,"apps");
     if(indexor == (size_t)-1){
         LOG_ERROR("JSON of the vault altered - key 'apps' not found");
         return 1;
@@ -166,7 +166,7 @@ int removeEntry(JsonValue *vaultRoot,CShildEntry entry,int* numberOfEntryRemoved
         LOG_ERROR("JSON of the vault altered - Application value is not an object");
         return 1;
     }
-    size_t indexApp = getIndexFromObject(apps_p->value.object,entry.app);
+    size_t indexApp = getIndexFromObjectWithKey(apps_p->value.object,entry.app);
     if(indexApp == (size_t)-1){
         // L'app n'existe pas
         return 2;
@@ -180,24 +180,230 @@ int removeEntry(JsonValue *vaultRoot,CShildEntry entry,int* numberOfEntryRemoved
     if(entry.id == NULL){
         // On détruit TOUT l'app
         *numberOfEntryRemoved = apps_p->value.object->listeOfPair[indexApp].value.value.object->nbOfElement;
-        state = removeToObject(apps_p->value.object,indexApp);
+        state = removeFromObject(apps_p->value.object,indexApp);
         if(state == 1){
-            LOG_ERROR("Removing a value in an object failed (removeToObject)");
+            LOG_ERROR("Removing a value in an object failed (removeFromObject)");
             return 1;
         }
         return 0;
     }else{
         // On détruit un compte
-        size_t indexID = getIndexFromObject(IDs_p->value.object,entry.id);
+        size_t indexID = getIndexFromObjectWithKey(IDs_p->value.object,entry.id);
         if(indexID == (size_t)-1){
             // L'ID n'existe pas
             return 3;
         }
         *numberOfEntryRemoved = 1;
-        state = removeToObject(IDs_p->value.object,indexID);
+        state = removeFromObject(IDs_p->value.object,indexID);
         if(state == 1){
-            LOG_ERROR("Removing a value in an object failed (removeToObject)");
+            LOG_ERROR("Removing a value in an object failed (removeFromObject)");
             return 1;
+        }
+        if(IDs_p->value.object->nbOfElement == 0){
+            state = removeFromObject(apps_p->value.object,indexApp);
+            if(state == 1){
+                LOG_ERROR("Removing a value in an object failed (removeFromObject)");
+                return 1;
+            }
+            // Le nom de l'app existe deja
+            return 4;
+        }
+    }
+
+    return 0;
+}
+
+int modEntry(JsonValue *vaultRoot,CShildEntry entry,size_t* indexBadTag){
+    if(vaultRoot == NULL || vaultRoot->type != JSON_OBJECT){
+        LOG_ERROR("Corrupted pointer (vaultRoot == NULL or not an object)");
+        return 1;
+    }
+    if(entry.newPassword == 1 && entry.pwd == NULL){
+        LOG_ERROR("Corrupted pointer (entry.newPassword == 1 but entry.pwd == NULL)");
+        return 1;
+    }
+    if(entry.app == NULL){
+        LOG_ERROR("App name null");
+        return 1;
+    }
+    if(indexBadTag == NULL){
+        LOG_ERROR("Corrupted pointer (indexBadTag == NULL)");
+        return 1;
+    }
+
+    int state = 0;
+    size_t indexor = 0;
+    int versionCShild = getVersionCShild();
+    if(versionCShild == -1){
+        LOG_ERROR("Impossible to fetch the version of CShild");
+        return 1;
+    }
+    int versionVault = getVersionVault(*vaultRoot);
+    if(versionVault == -1){
+        LOG_ERROR("Impossible to fetch the version of the vault");
+        return 1;
+    }else if(versionCShild != versionVault){
+        LOG_ERROR("Version of CShild and the vault different");
+        return 1;
+    }
+
+    indexor = getIndexFromObjectWithKey(vaultRoot->value.object,"apps");
+    if(indexor == (size_t)-1){
+        LOG_ERROR("JSON of the vault altered - key 'apps' not found");
+        return 1;
+    }
+    // L'application existe t'elle ?
+    JsonValue *apps_p = &vaultRoot->value.object->listeOfPair[indexor].value;
+    if(apps_p->type != JSON_OBJECT){
+        LOG_ERROR("JSON of the vault altered - Application value is not an object");
+        return 1;
+    }
+    size_t indexApp = getIndexFromObjectWithKey(apps_p->value.object,entry.app);
+    if(indexApp == (size_t)-1){
+        // L'app n'existe pas
+        return 2;
+    }
+    if(entry.newAppName != NULL){
+        if(getIndexFromObjectWithKey(apps_p->value.object,entry.newAppName) != (size_t)-1){
+            // Nom d'app deja pris
+            return 4;
+        }
+        JsonPair newPaire;
+        newPaire.key = entry.newAppName;
+        newPaire.value = apps_p->value.object->listeOfPair[indexApp].value;
+        state = modifyObject(apps_p->value.object,newPaire,indexApp);
+        if(state == 1){
+            LOG_ERROR("Modifing value in an object failed (modifyObject)");
+            return 1;
+        }
+        return 0;
+    }else{
+        JsonValue *IDs_p = &apps_p->value.object->listeOfPair[indexApp].value;
+        if(IDs_p->type != JSON_OBJECT){
+            LOG_ERROR("JSON of the vault altered - ID value is not an object");
+            return 1;
+        }
+        if(entry.id == NULL){
+            LOG_ERROR("ID name null");
+            return 1;
+        }
+        size_t indexID = getIndexFromObjectWithKey(IDs_p->value.object,entry.id);
+        if(indexID == (size_t)-1){
+            // L'ID n'existe pas
+            return 3;
+        }
+        if(entry.newIDName != NULL){
+            if(getIndexFromObjectWithKey(IDs_p->value.object,entry.newIDName) != (size_t)-1){
+                // Le nouvelle ID existe deja
+                return 5;
+            }
+            JsonPair newPaire;
+            newPaire.key = entry.newIDName;
+            newPaire.value = IDs_p->value.object->listeOfPair[indexID].value;
+            state = modifyObject(IDs_p->value.object,newPaire,indexID);
+            if(state == 1){
+                LOG_ERROR("Modifing value in an object failed (modifyObject)");
+                return 1;
+            }
+            return 0;
+        }else{
+            JsonObject* selectedObject = IDs_p->value.object->listeOfPair[indexID].value.value.object;
+            if(entry.note != NULL){
+                size_t indexNote = getIndexFromObjectWithKey(selectedObject,"note");
+                if(indexNote == (size_t)-1){
+                    LOG_ERROR("JSON of the vault altered - key 'note' not found");
+                    return 1;
+                }
+                char* buffeurNote = NULL;
+                state = bt_strcpy(&buffeurNote,entry.note);
+                if(state == 1){
+                    LOG_ERROR("Copy of a string failed (bt_strcpy)");
+                    return 1;
+                }
+                freeValue(selectedObject->listeOfPair[indexNote].value);
+                selectedObject->listeOfPair[indexNote].value.value.string = buffeurNote;
+            }
+            if(entry.newPassword == 1){
+                state = modPassword(selectedObject,entry.pwd);
+                if(state == 1){
+                    return 1;
+                }else if(state == 2){
+                    // Nouveau mot de passe vide
+                    return 6;
+                }
+            }
+            if(entry.tags != NULL){
+                size_t indexTags = getIndexFromObjectWithKey(selectedObject,"tags");
+                if(indexTags == (size_t)-1){
+                    LOG_ERROR("JSON of the vault altered - key 'tags' not found");
+                    return 1;
+                }
+
+                if(entry.tagsMethode == 1){
+                    JsonValue newTags = initJsonValue(JSON_ARRAY);
+                    if(newJsonArray(&newTags)){
+                        LOG_ERROR("Creation of an array failed (newJsonArray)");
+                        return 1;
+                    }
+                    for(size_t i=0;i<entry.nbOfTags;i++){
+                        JsonValue tag = initJsonValue(JSON_STRING);
+                        tag.value.string = entry.tags[i];
+                        state = addToArray(newTags.value.array,tag,i);
+                        if(state == 1){
+                            LOG_ERROR("Adding a new value in an array failed (addToArray)");
+                            freeValue(newTags);
+                            return 1;
+                        }
+                    }
+                    // Affectation du nouvelle array -> On écrase l'ancien !!! 
+                    freeValue(selectedObject->listeOfPair[indexTags].value);
+                    selectedObject->listeOfPair[indexTags].value.value.array = newTags.value.array;
+                }else if(entry.tagsMethode == 2){
+                    size_t nomberDeTag = selectedObject->listeOfPair[indexTags].value.value.array->nbOfElement;
+                    for(size_t i = nomberDeTag;i<nomberDeTag+entry.nbOfTags;i++){
+                        JsonValue newtag = initJsonValue(JSON_STRING);
+                        newtag.value.string = entry.tags[i-nomberDeTag];
+                        if(getIndexFromArray(selectedObject->listeOfPair[indexTags].value.value.array,newtag) != (size_t)-1){
+                            // Le tag existe deja
+                            *indexBadTag = i-nomberDeTag;
+                            return 7;
+                        }
+                        state = addToArray(selectedObject->listeOfPair[indexTags].value.value.array,newtag,i);
+                        if(state == 1){
+                            LOG_ERROR("Adding a new value in an array failed (addToArray)");
+                            return 1;
+                        }
+                    }
+                }else if(entry.tagsMethode == 3){
+                    for(size_t i = 0;i<entry.nbOfTags;i++){
+                        JsonValue targetTag = initJsonValue(JSON_STRING);
+                        targetTag.value.string = entry.tags[i];
+                        size_t indexToErase = getIndexFromArray(selectedObject->listeOfPair[indexTags].value.value.array,targetTag);
+                        if(indexToErase == (size_t)-1){
+                            // Le tag n'existe pas
+                            *indexBadTag = i;
+                            return 8;
+                        }
+                        state = removeFromArray(selectedObject->listeOfPair[indexTags].value.value.array,indexToErase);
+                        if(state == 1){
+                            LOG_ERROR("Removing a value in an array failed (removeFromArray)");
+                            return 1;
+                        }
+                    }
+                }
+            }
+            size_t indexUpdated_at = getIndexFromObjectWithKey(selectedObject,"updated_at");
+            if(indexUpdated_at == (size_t)-1){
+                LOG_ERROR("JSON of the vault altered - key 'updated_at' not found");
+                return 1;
+            }
+            char* updated_at_str = NULL;
+            if(getTime(&updated_at_str)){
+                LOG_ERROR("Impossible to fetch actual time (getTime)");
+                return 1;
+            }
+            freeValue(selectedObject->listeOfPair[indexUpdated_at].value);
+            selectedObject->listeOfPair[indexUpdated_at].value.value.string = updated_at_str;
         }
     }
 
@@ -209,12 +415,12 @@ int modPassword(JsonObject *obj,char* newPassword){
     if(bt_strlen(newPassword) == 0){
         return 2;
     }
-    size_t indexPassword = getIndexFromObject(obj,"password");
+    size_t indexPassword = getIndexFromObjectWithKey(obj,"password");
     if(indexPassword == (size_t)-1){
         LOG_ERROR("JSON altered or corrupted, key 'password' not found");
         return 1;
     }
-    size_t indexHistory = getIndexFromObject(obj,"password_history");
+    size_t indexHistory = getIndexFromObjectWithKey(obj,"password_history");
     if(indexHistory == (size_t)-1){
         LOG_ERROR("JSON altered or corrupted, key 'password_history' not found");
         return 1;
@@ -315,9 +521,23 @@ int getTime(char** dest){
     return 0;
 }
 
+size_t getTagIndex(JsonArray* ary,char* tag){
+    if(ary == NULL || tag == NULL){
+        return (size_t)-1;
+    }
+
+    for(size_t i = 0;i<ary->nbOfElement;i++){
+        if(bt_strcmp(ary->listeOfValue[i].value.string,tag) == 0){
+            return i;
+        }
+    }
+
+    return (size_t)-1;
+}
+
 
 int getVersionVault(JsonValue vaultRoot){
-    size_t indexVersion = getIndexFromObject(vaultRoot.value.object,"version");
+    size_t indexVersion = getIndexFromObjectWithKey(vaultRoot.value.object,"version");
     if(indexVersion == (size_t) -1){
         LOG_ERROR("JSON of the vault altered - key 'version' not found");
         return -1;
@@ -429,7 +649,7 @@ int fillUpWithEntry(JsonObject* obj,CShildEntry entry){
     }
 
     if(entry.note != NULL){
-        size_t indexNote = getIndexFromObject(obj,"note");
+        size_t indexNote = getIndexFromObjectWithKey(obj,"note");
         if(indexNote == (size_t)-1){
             LOG_ERROR("JSON altered or corrupted, key 'note' not found");
             return 1;
@@ -444,7 +664,7 @@ int fillUpWithEntry(JsonObject* obj,CShildEntry entry){
     }
 
     if(entry.tags != NULL){
-        size_t indexTags = getIndexFromObject(obj,"tags");
+        size_t indexTags = getIndexFromObjectWithKey(obj,"tags");
         if(indexTags == (size_t)-1){
             LOG_ERROR("JSON altered or corrupted, key 'tags' not found");
             return 1;

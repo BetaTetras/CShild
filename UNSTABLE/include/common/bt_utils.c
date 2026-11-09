@@ -221,7 +221,7 @@ int vaultAreadyCreated(const char* selectedName){
         return -1;
     }
 
-    size_t indexPath = getIndexFromObject(conf.value.object,"vaults_dir_path");
+    size_t indexPath = getIndexFromObjectWithKey(conf.value.object,"vaults_dir_path");
     if(indexPath == (size_t) -1){
         // pas de clé "vaults_dir_path" dans le conf.json
         freeValue(conf);
@@ -345,7 +345,7 @@ int getVersionCShild(){
         return -1;
     }
 
-    size_t versionIndex = getIndexFromObject(conf.value.object,"version");
+    size_t versionIndex = getIndexFromObjectWithKey(conf.value.object,"version");
     if(versionIndex == (size_t)-1){
         LOG_ERROR("conf.json altered or corrupted, key 'version' not found");
         freeValue(conf);
@@ -512,7 +512,7 @@ int getVaultsPath(char** dest){
         return 1;
     }
     
-    size_t indexPath = getIndexFromObject(conf.value.object,"vaults_dir_path");
+    size_t indexPath = getIndexFromObjectWithKey(conf.value.object,"vaults_dir_path");
     if(indexPath == (size_t)-1){
         LOG_ERROR("conf.json altered (no \"vaults_dir_path\" key)");
         freeValue(conf);

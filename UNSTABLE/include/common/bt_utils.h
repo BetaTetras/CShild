@@ -13,6 +13,10 @@ typedef struct {
     char* note;
     char** tags;
     size_t nbOfTags;
+    char* newAppName;
+    char* newIDName;
+    int newPassword;
+    int tagsMethode;
 }CShildEntry;
 
 // Fonctions de chaînes partagées par CSON, AES et le CLI.
@@ -41,6 +45,7 @@ void bt_multiFree(size_t numberToFree,...);
 void bt_multiFreeValue(size_t numberToFree,...);
 void bt_deepFree(size_t numberToFree,void** p);
 void nukeString(char* str,size_t size);
+void uint8_tToZero(uint8_t* p_uint8_t,size_t size);   // définie dans AES.c (non déclarée dans AES.h upstream)
 
 int bt_fgetss(char** dest);
 int bt_pwdGen(char** dest,size_t length,int uppercase,int lowercase,int digits,int symbols);
