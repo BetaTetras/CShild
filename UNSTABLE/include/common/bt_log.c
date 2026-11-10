@@ -58,3 +58,56 @@ void bt_logError(const char* file,int line,const char* func,const char* reason){
     fprintf(log_f, "[%s] - Error : %s:%d %s() - %s\n", time_str, file, line, func, reason);
     fclose(log_f);
 }    
+
+void bt_logAction(char methode,char* vault,int numberOfModif){
+    int state;
+    state = isActionLoggerActivated();
+    if(state == -1){
+        LOG_ERROR("Something append while fetching the statu of log_action in the conf");
+        return;
+    }else if(state == 0){
+        // Logger == false -> On log rien
+        return;
+    }
+
+    char* logActionPath = NULL;
+    state = getActionLoggerPath(&logActionPath);
+    if(state == 1){
+        LOG_ERROR("Something append while fetching the path of the action logger");
+        return;
+    }
+    FILE* log_f = fopen(logActionPath, "a");
+    free(logActionPath);
+    if(log_f == NULL){
+        LOG_ERROR("Impossible to open the action log file (log_action_path in conf.json, does the folder exist ?)");
+        return;
+    }
+
+    char time_str[32] = "?";
+    time_t t = time(NULL);
+    struct tm* now = localtime(&t);
+    if(now != NULL){
+        strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", now);
+    }
+
+    if(methode == '-'){
+        if(numberOfModif > 1){
+            fprintf(log_f,"[%c] - %s - '%s' - Remove %d entries\n",methode,time_str,vault,numberOfModif);
+        }else{
+            fprintf(log_f,"[%c] - %s - '%s' - Remove %d entry\n",methode,time_str,vault,numberOfModif);
+        }
+    }else if( methode == '+'){
+        fprintf(log_f,"[%c] - %s - '%s' - Add new entry\n",methode,time_str,vault);
+    }else if(methode == '*'){
+        fprintf(log_f,"[%c] - %s - '%s' - Modify an entry\n",methode,time_str,vault);
+    }else if(methode == '!'){
+        fprintf(log_f,"[%c] - %s - '%s' - Password of vault changed\n",methode,time_str,vault);
+    }else if(methode == '@'){
+        fprintf(log_f,"[%c] - %s - '%s' - Wrong password\n",methode,time_str,vault);
+    }else if(methode == 'v'){
+        fprintf(log_f,"[+] - %s - '%s' - Vault created\n",time_str,vault);
+    }else{
+        fprintf(log_f,"[%c] - %s - '%s' - unknown action\n",'?',time_str,vault);
+    }
+    fclose(log_f);
+}

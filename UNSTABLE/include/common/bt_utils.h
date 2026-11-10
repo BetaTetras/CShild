@@ -37,9 +37,10 @@ int getConfPath(char** dest);
 int getConf(JsonValue* destConf);
 int parseVaultName(char** dest,const char* src);
 int getCShildDir(char** pathDest);
-double getVersionCShild();
+double getVersionCShild(void);
 int getVaultsPath(char** dest);
 int getErrorLogPath(char** dest);
+int getActionLoggerPath(char** dest);
 int getVaultPathFromName(char** destPath,const char* vaultName);
 // Crée <dossier des vaults>/<nomVault>.cshild contenant un vault vide (JSON en clair : à chiffrer ensuite avec AES_GCM_Encrypt_File).
 // Ne remplace jamais un vault existant. Renvoie 0 si créé, 1 en cas d'erreur interne,
@@ -47,6 +48,7 @@ int getVaultPathFromName(char** destPath,const char* vaultName);
 int initNewBlankVault(char* nomVault);
 int getValidation(void);
 int isFileOpenable(char* path);
+int isActionLoggerActivated(void);
 int readVault(uint8_t** dest,size_t* size,const char* path);
 int writeVault(const uint8_t* src,const size_t size,const char* path);
 void bt_multiFree(size_t numberToFree,...);

@@ -7,6 +7,7 @@
 #include "../../include/common/bt_utils.h"
 #include "../../include/common/bt_printf.h"
 #include "../../include/common/bt_api.h"
+#include "../../include/common/bt_log.h"
 
 // Chemin réel de error.log (voir bt_log.c) : %APPDATA% sous Windows, $HOME sous Linux.
 // Ce texte passe dans print_ERR (format printf) : le % de %APPDATA% doit être doublé.
@@ -135,6 +136,9 @@ int main(int argc, char *argv[]) {
 
         state = AES_GCM_Decrypt(&b_decryptedVault,&size_decryptedVault,b_encryptedVault,size_encryptedVault,vaultPWD);
         if(AES_GCM_Decrypt_returnCodeHandler(state)){
+            if(state == AES_ERR_MDP){
+                bt_logAction('@',argv[2],1);
+            }
             uint8_tToZero(b_encryptedVault,size_encryptedVault);
             nukeString(vaultPWD,bt_strlen(vaultPWD));
             free(b_encryptedVault);
@@ -234,6 +238,7 @@ int main(int argc, char *argv[]) {
         }
 
         print_SUC("New entry successfully saved");
+        bt_logAction('+',argv[2],1);
 
         uint8_tToZero(b_encryptedVault,size_encryptedVault);
         uint8_tToZero(b_decryptedVault,size_decryptedVault);
@@ -334,6 +339,9 @@ int main(int argc, char *argv[]) {
         // 3. On décrypte le vault en mémoire
         state = AES_GCM_Decrypt(&b_decryptedVault,&size_decryptedVault,b_encryptedVault,size_encryptedVault,vaultPWD);
         if(AES_GCM_Decrypt_returnCodeHandler(state)){
+            if(state == AES_ERR_MDP){
+                bt_logAction('@',argv[2],1);
+            }
             uint8_tToZero(b_encryptedVault,size_encryptedVault);
             nukeString(vaultPWD,bt_strlen(vaultPWD));
             free(b_encryptedVault);
@@ -442,6 +450,7 @@ int main(int argc, char *argv[]) {
 
         // 9. On informe l'utilisateur
         print_SUC("%d entry successfully removed",numberOfRemovedEntry);
+        bt_logAction('-',argv[2],numberOfRemovedEntry);
 
         // 10. On clean tout en mémoire
         uint8_tToZero(b_encryptedVault,size_encryptedVault);
@@ -541,6 +550,9 @@ int main(int argc, char *argv[]) {
 
         state = AES_GCM_Decrypt(&b_decryptedVault,&size_decryptedVault,b_encryptedVault,size_encryptedVault,vaultPWD);
         if(AES_GCM_Decrypt_returnCodeHandler(state)){
+            if(state == AES_ERR_MDP){
+                bt_logAction('@',argv[2],1);
+            }
             uint8_tToZero(b_encryptedVault,size_encryptedVault);
             nukeString(vaultPWD,bt_strlen(vaultPWD));
             free(b_encryptedVault);
@@ -717,6 +729,7 @@ int main(int argc, char *argv[]) {
         }
 
         print_SUC("Modification successfully saved");
+        bt_logAction('*',argv[2],1);
 
         uint8_tToZero(b_encryptedVault,size_encryptedVault);
         uint8_tToZero(b_decryptedVault,size_decryptedVault);
@@ -831,6 +844,7 @@ int main(int argc, char *argv[]) {
             }
 
             print_SUC("New vault '%s' successfully created",argv[2]);
+            bt_logAction('v',argv[2],0);
 
             nukeString(vaultPWD,bt_strlen(vaultPWD));
             free(vaultPWD);
@@ -912,6 +926,9 @@ int main(int argc, char *argv[]) {
 
             state = AES_GCM_Decrypt(&vault_Decrypted_b,&vault_Decrypted_b_size,vault_Encrypted_b,vault_Encrypted_b_size,vaultPWD);
             if(AES_GCM_Decrypt_returnCodeHandler(state)){
+                if(state == AES_ERR_MDP){
+                    bt_logAction('@',argv[2],1);
+                }
                 uint8_tToZero(vault_Encrypted_b,vault_Encrypted_b_size);
                 free(vault_Encrypted_b);
                 uint8_tToZero(vault_Decrypted_b,vault_Decrypted_b_size);
@@ -1015,6 +1032,7 @@ int main(int argc, char *argv[]) {
             }
 
             print_SUC("The vault '%s' have successfully change password",argv[2]);
+            bt_logAction('!',argv[2],1);
 
             uint8_tToZero(vault_Encrypted_b,vault_Encrypted_b_size);
             free(vault_Encrypted_b);
@@ -1662,6 +1680,7 @@ int AES_GCM_Decrypt_returnCodeHandler(int code){
         return 1;
     }else if(code == AES_ERR_MDP){
         print_WRN("Wrong password");
+
         return 1;
     }else if(code == AES_ERR_AUTH){
         print_ERR("Vault altered while encrypted");

@@ -264,6 +264,45 @@ int getErrorLogPath(char** dest){
     return 0;
 }
 
+int getActionLoggerPath(char** dest){
+    if(dest == NULL){
+        LOG_ERROR("Corrupted pointer (dest == NULL)");
+        return 1;
+    }
+    JsonValue conf;
+    if(getConf(&conf)){
+        LOG_ERROR("Impossible to get conf.json");
+        return 1;
+    }
+    if(conf.type != JSON_OBJECT){
+        LOG_ERROR("conf.json altered (conf.json is not a object)");
+        freeValue(conf);
+        return 1;
+    }
+
+    size_t indexPath = getIndexFromObjectWithKey(conf.value.object,"log_action_path");
+    if(indexPath == (size_t)-1){
+        LOG_ERROR("conf.json altered (no \"log_action_path\" key)");
+        freeValue(conf);
+        return 1;
+    }
+    if(conf.value.object->listeOfPair[indexPath].value.type != JSON_STRING){
+        LOG_ERROR("conf.json altered (\"log_action_path\" is not a string)");
+        freeValue(conf);
+        return 1;
+    }
+    char* path = NULL;
+    if(bt_strcpy(&path,conf.value.object->listeOfPair[indexPath].value.value.string)){
+        LOG_ERROR("Error while copying a string (bt_strcpy)");
+        free(path);
+        freeValue(conf);
+        return 1;
+    }
+    *dest = path;
+    freeValue(conf);
+    return 0;
+}
+
 int getConf(JsonValue* destConf){
     int state;
     char* confPath = NULL;
@@ -433,7 +472,7 @@ int getCShildDir(char** pathDest){
     return 0;
 }
 
-double getVersionCShild(){
+double getVersionCShild(void){
     JsonValue conf;
     if(getConf(&conf)){
         return -1;
@@ -627,6 +666,38 @@ int getVaultsPath(char** dest){
     *dest = path;
     freeValue(conf);
     return 0;
+}
+
+int isActionLoggerActivated(void){
+    int state;
+    JsonValue conf;
+    state = getConf(&conf);
+    if(state == 1){
+        LOG_ERROR("Impossible to fetch the conf (getConf)");
+        return -1;
+    }
+    if(conf.type != JSON_OBJECT){
+        // Conf non valide
+        freeValue(conf);
+        LOG_ERROR("conf.json invalid (root is not an object)");
+        return -1;
+    }
+
+    size_t indexActionLoggerState = getIndexFromObjectWithKey(conf.value.object,"log_action");
+    if(indexActionLoggerState == (size_t)-1){
+        LOG_ERROR("conf.json altered (no \"log_action\" key)");
+        freeValue(conf);
+        return -1;
+    }
+    if(conf.value.object->listeOfPair[indexActionLoggerState].value.type != JSON_BOOL){
+        LOG_ERROR("conf.json invalid (log_action is not an boolean)");
+        freeValue(conf);
+        return -1;
+    }
+
+    int activated = conf.value.object->listeOfPair[indexActionLoggerState].value.value.integer;
+    freeValue(conf);
+    return activated;
 }
 
 int getValidation(void){
