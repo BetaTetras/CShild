@@ -839,7 +839,190 @@ int main(int argc, char *argv[]) {
         }else if(bt_strcmp(argv[1],"vaults") == 0){
 
         }else if(bt_strcmp(argv[1],"password") == 0){
+            // 1. On vérifie que le nombre de param est correcte
+            if(argc > 3 ){
+                print_WRN("Too many parameters (%d)",argc);
+                return 1;
+            }else if(argc < 3){
+                print_WRN("Not enough parameters (%d)",argc);
+                return 1;
+            }
 
+            // 2. On vérifie que le vault existe bien
+            state = vaultAreadyCreated(argv[2]);
+            if(state == -1){
+                print_ERR(ERR_SYSTEM_MSG);
+                return 1;
+            }else if(state == 0){
+                print_WRN("Vault '%s' does not exist",argv[2]);
+                return 1;
+            }
+
+            // 3. On récupére son path
+            char* vaultPath = NULL;
+            state = getVaultPathFromName(&vaultPath,argv[2]);
+            if(state == 1){
+                print_ERR(ERR_SYSTEM_MSG);
+                return 1;
+            }
+
+            // 4. On demande le mdp du vault
+            char* vaultPWD = NULL;
+            char* buffer = NULL;
+            printf("Enter the password of the vault : ");
+            state = bt_fgetss(&vaultPWD);
+            if(state == 1){
+                print_ERR(ERR_SYSTEM_MSG);
+                free(vaultPath);
+                return 1;
+            }else if(state != 0){
+                print_WRN("The entered password is empty");
+                free(vaultPath);
+                return 1;
+            }
+
+            // 5. On décrypte en mémoire pour eviter de l'avoir dans le DD
+            uint8_t* vault_Encrypted_b = NULL;
+            size_t vault_Encrypted_b_size;
+
+            uint8_t* vault_Decrypted_b = NULL;
+            size_t vault_Decrypted_b_size;
+            state = readVault(&vault_Encrypted_b,&vault_Encrypted_b_size,vaultPath);
+            if(state == 1){
+                print_ERR(ERR_SYSTEM_MSG);
+                uint8_tToZero(vault_Encrypted_b,vault_Encrypted_b_size);
+                free(vault_Encrypted_b);
+                uint8_tToZero(vault_Decrypted_b,vault_Decrypted_b_size);
+                free(vault_Decrypted_b);
+                nukeString(vaultPWD,bt_strlen(vaultPWD));
+                free(vaultPWD);
+                free(vaultPath);
+                return 1;
+            }else if(state == 2){
+                print_ERR("Vault size >= 64 MO");
+                uint8_tToZero(vault_Encrypted_b,vault_Encrypted_b_size);
+                free(vault_Encrypted_b);
+                uint8_tToZero(vault_Decrypted_b,vault_Decrypted_b_size);
+                free(vault_Decrypted_b);
+                nukeString(vaultPWD,bt_strlen(vaultPWD));
+                free(vaultPWD);
+                free(vaultPath);
+                return 1;
+            }
+
+            state = AES_GCM_Decrypt(&vault_Decrypted_b,&vault_Decrypted_b_size,vault_Encrypted_b,vault_Encrypted_b_size,vaultPWD);
+            if(AES_GCM_Decrypt_returnCodeHandler(state)){
+                uint8_tToZero(vault_Encrypted_b,vault_Encrypted_b_size);
+                free(vault_Encrypted_b);
+                uint8_tToZero(vault_Decrypted_b,vault_Decrypted_b_size);
+                free(vault_Decrypted_b);
+                nukeString(vaultPWD,bt_strlen(vaultPWD));
+                free(vaultPWD);
+                free(vaultPath);
+                return 1;
+            }
+
+            // 6. On demande le nouveau mot de passe
+            nukeString(vaultPWD,bt_strlen(vaultPWD));
+            free(vaultPWD);
+            print_INF("Remember or write down your master key, if you lost it NO RECOVERY POSSIBLE");
+            printf("Enter the new password of the vault : ");
+            state = bt_fgetss(&vaultPWD);
+            if(state == 1){
+                print_ERR(ERR_SYSTEM_MSG);
+                uint8_tToZero(vault_Encrypted_b,vault_Encrypted_b_size);
+                free(vault_Encrypted_b);
+                uint8_tToZero(vault_Decrypted_b,vault_Decrypted_b_size);
+                free(vault_Decrypted_b);
+                free(vaultPath);
+                return 1;
+            }else if(state != 0){
+                print_WRN("The entered password is empty");
+                uint8_tToZero(vault_Encrypted_b,vault_Encrypted_b_size);
+                free(vault_Encrypted_b);
+                uint8_tToZero(vault_Decrypted_b,vault_Decrypted_b_size);
+                free(vault_Decrypted_b);
+                free(vaultPath);
+                return 1;
+            }
+            printf("Enter the new password of the vault again : ");
+            state = bt_fgetss(&buffer);
+            if(state == 1){
+                print_ERR(ERR_SYSTEM_MSG);
+                uint8_tToZero(vault_Encrypted_b,vault_Encrypted_b_size);
+                free(vault_Encrypted_b);
+                uint8_tToZero(vault_Decrypted_b,vault_Decrypted_b_size);
+                free(vault_Decrypted_b);
+                nukeString(vaultPWD,bt_strlen(vaultPWD));
+                free(vaultPWD);
+                free(vaultPath);
+                return 1;
+            }else if(state != 0){
+                print_WRN("The entered password is empty");
+                uint8_tToZero(vault_Encrypted_b,vault_Encrypted_b_size);
+                free(vault_Encrypted_b);
+                uint8_tToZero(vault_Decrypted_b,vault_Decrypted_b_size);
+                free(vault_Decrypted_b);
+                nukeString(vaultPWD,bt_strlen(vaultPWD));
+                free(vaultPWD);
+                free(vaultPath);
+                return 1;
+            }
+
+            if(bt_strcmp(vaultPWD,buffer) != 0){
+                print_WRN("The two password are not the same");
+                uint8_tToZero(vault_Encrypted_b,vault_Encrypted_b_size);
+                free(vault_Encrypted_b);
+                uint8_tToZero(vault_Decrypted_b,vault_Decrypted_b_size);
+                free(vault_Decrypted_b);
+                nukeString(vaultPWD,bt_strlen(vaultPWD));
+                nukeString(buffer,bt_strlen(buffer));
+                free(vaultPWD);
+                free(buffer);
+                free(vaultPath);
+                return 1;
+            }
+            nukeString(buffer,bt_strlen(buffer));
+            free(buffer);
+
+            // 7. On ré-encrypte le vault avec le nouveau mdp
+            uint8_tToZero(vault_Encrypted_b,vault_Encrypted_b_size);
+            free(vault_Encrypted_b);
+            vault_Encrypted_b = NULL;
+            state = AES_GCM_Encrypt(&vault_Encrypted_b,&vault_Encrypted_b_size,vault_Decrypted_b,vault_Decrypted_b_size,vaultPWD);
+            if(AES_GCM_Encrypt_returnCodeHandler(state)){
+                uint8_tToZero(vault_Encrypted_b,vault_Encrypted_b_size);
+                free(vault_Encrypted_b);
+                uint8_tToZero(vault_Decrypted_b,vault_Decrypted_b_size);
+                free(vault_Decrypted_b);
+                nukeString(vaultPWD,bt_strlen(vaultPWD));
+                free(vaultPWD);
+                free(vaultPath);
+                return 1;
+            }
+
+            state = writeVault(vault_Encrypted_b,vault_Encrypted_b_size,vaultPath);
+            if(state == 1){
+                print_ERR(ERR_SYSTEM_MSG);
+                uint8_tToZero(vault_Encrypted_b,vault_Encrypted_b_size);
+                free(vault_Encrypted_b);
+                uint8_tToZero(vault_Decrypted_b,vault_Decrypted_b_size);
+                free(vault_Decrypted_b);
+                nukeString(vaultPWD,bt_strlen(vaultPWD));
+                free(vaultPWD);
+                free(vaultPath);
+                return 1;
+            }
+
+            print_SUC("The vault '%s' have successfully change password",argv[2]);
+
+            uint8_tToZero(vault_Encrypted_b,vault_Encrypted_b_size);
+            free(vault_Encrypted_b);
+            uint8_tToZero(vault_Decrypted_b,vault_Decrypted_b_size);
+            free(vault_Decrypted_b);
+            nukeString(vaultPWD,bt_strlen(vaultPWD));
+            free(vaultPWD);
+            free(vaultPath);
         }else{
 
         }
